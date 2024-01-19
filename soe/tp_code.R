@@ -97,8 +97,8 @@ age_ur <- svyby(formula = ~v012, by = ~v025, design = dhs, FUN = svymean, vartyp
 t_test_age <- svyttest(v012 ~ v025, design = dhs) # t-test for pvalue
 
 ### education by urban and rural
-edu_ur <- svytable(formula = ~v106, design = dhs)
-
+table(teendata$v106, teendata$v025) # check grouping
+svytable(~v106 + v025, design = dhs) # check grouping
 
 # stratified analysis
 ## pregnancy outcomes
