@@ -3,7 +3,6 @@ library(dplyr)
 library(labelled)
 # install.packages("survey") # for survey design
 library(survey)
-library(DHS.rates)
 
 # Extract
 ## extract selected variables from IR
@@ -63,20 +62,13 @@ data %>% group_by(fp_info) %>% summarise(n = n()) # check grouping
 # alternative: data %>% group_by(v384a,v384b,v384c,v384d,v384e,v384f,v384g,v384h) %>% summarize (count = n())
 
 # summary statistics
-## teenage pregnancy 
+## sample size
 ### Sample size individuals and weighted in urban and rural
 sumtotal <- data %>% group_by (v025) %>%
   summarise(total = n(), total_weight = round(sum(v005)/1000000,0)) 
 sumteen <- data %>% filter (v013 ==1) %>% group_by (v025) %>%
   summarize (teen = n(), teen_weight = round(sum(v005)/1000000,0))
-sumteenp <- data %>% filter(v013 ==1 & teen_preg == 1) %>% group_by (v025) %>%
-  summarize (teenp = n(), teenp_weight = round (sum(v005)/1000000,0))
-samplesize_ur <- cbind(sumtotal,sumteen[,2:3],sumteenp[,2:3]) # create dataframe
-#### proportion of teenagers and teenage pregnancies across urban and rural
-sumprop <- samplesize_ur%>% group_by(v025) %>% summarise(
-  teen_prop = sum(teen_weight) / sum(total_weight),
-  teenp_prop = sum(teenp_weight) / sum(teen_weight))
-samplesize_ur <- cbind(samplesize_ur,sumprop[,2:3]) # add proportion to dataframe
+samplesize_ur <- cbind(sumtotal,sumteen[,2:3]) # create dataframe
 print(samplesize_ur) # print table
 
 ### Sample size individuals and weighted in regions
@@ -84,24 +76,29 @@ sumtotal_region <- data %>% group_by (v024) %>%
   summarise(total = n(), total_weight = round(sum(v005)/1000000,0)) 
 sumteen_region <- data %>% filter (v013 ==1) %>% group_by (v024) %>%
   summarize (teen = n(), teen_weight = round(sum(v005)/1000000,0))
-sumteenp_region <- data %>% filter(v013 ==1 & teen_preg == 1) %>% group_by (v024) %>%
-  summarize (teenp = n(), teenp_weight = round (sum(v005)/1000000,0))
-samplesize_region <- cbind(sumtotal_region,sumteen_region[,2:3],sumteenp_region[,2:3]) # create dataframe
-#### proportion of teenagers and teenage pregnancies across regions
-sumprop_region <- samplesize_region %>% group_by(v024) %>% summarise(
-  teen_prop = sum(teen_weight) / sum(total_weight),
-  teenp_prop = sum(teenp_weight) / sum(teen_weight))
-samplesize_region <- cbind(samplesize_region,sumprop_region[,2:3]) # add proportion to dataframe
+samplesize_region <- cbind(sumtotal_region,sumteen_region[,2:3]) # create dataframe
 print(samplesize_region) # print table
 
-# survey design
-dhs <- svydesign(id=~v021, strata =~v023, weights=~v005, data=data_test) # create design
-# teenage pregnancy rate in regions
-data_test <- data %>% filter(v013 == 1)
-test <- svyby(~(teen_preg == 1), ~v024, dhs, svymean, vartype=c("se","ci"))
-test [,c(1,3)]
+## teenage pregnancy rate
+### survey design
+teendata <- data %>% filter(v013 == 1) # create dataset with only teenagers
+dhs <- svydesign(id=~v021, strata =~v023, weights=~v005, data=teendata) # create design
 
-svy
+### teenage pregnancy rate in regions
+tp_prop_region_raw <- svyby(~(teen_preg == 1), ~v024, dhs, svymean, vartype=c("se","ci"))
+tp_prop_region <- tp_prop_region_raw [,c(1,3)]
+### teenage pregnancy rate in urban and rural
+tp_prop_ur_raw <- svyby(~(teen_preg == 1), ~v025, dhs, svymean, vartype=c("se","ci"))
+tp_prop_ur <- tp_prop_ur_raw [,c(1,3)]
+
+## socio-demographic characteristics
+### age by urban and rural
+age_ur <- svyby(formula = ~v012, by = ~v025, design = dhs, FUN = svymean, vartype=c("ci"))
+t_test_age <- svyttest(v012 ~ v025, design = dhs) # t-test for pvalue
+
+### education by urban and rural
+edu_ur <- svytable(formula = ~v106, design = dhs)
+
 
 # stratified analysis
 ## pregnancy outcomes
