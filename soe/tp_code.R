@@ -36,6 +36,11 @@ data <- data %>% mutate(
   teen_preg = ifelse(v013 == 1 & (v201 > 0 | v245 > 0 | v213 == 1), 1, 0))
 data %>% group_by(teen_preg) %>% summarise(n = n()) # check grouping
 
+### current employment - covariate 1 = Yes, 0 = No
+data <- data %>% mutate(
+  employ_current = ifelse(v731 %in% c(2,3), 1, 0))
+table(data$employ_current,data$v731) # check grouping
+
 ## knowledge on any contraceptive method - covariate 1 = Yes, 0 = No
 data <- data %>% mutate(
   contra_know_any = ifelse(v304_01== 1 | v304_02== 1 | v304_03== 1 | v304_04== 1 | v304_05== 1 |
@@ -88,17 +93,29 @@ dhs <- svydesign(id=~v021, strata =~v023, weights=~v005, data=teendata) # create
 tp_prop_region_raw <- svyby(~(teen_preg == 1), ~v024, dhs, svymean, vartype=c("se","ci"))
 tp_prop_region <- tp_prop_region_raw [,c(1,3)]
 ### teenage pregnancy rate in urban and rural
-tp_prop_ur_raw <- svyby(~(teen_preg == 1), ~v025, dhs, svymean, vartype=c("se","ci"))
-tp_prop_ur <- tp_prop_ur_raw [,c(1,3)]
+svytable(~teen_preg + v025, design = dhs) # summary figure
+tp_prop_ur_raw <- svyby(~(teen_preg == 1), ~v025, dhs, svymean, vartype=c("ci"))
+tp_prop_ur <- tp_prop_ur_raw [,c(1,3,5,7)] # filter for proportion and CI
 
 ## socio-demographic characteristics
 ### age by urban and rural
 age_ur <- svyby(formula = ~v012, by = ~v025, design = dhs, FUN = svymean, vartype=c("ci"))
 t_test_age <- svyttest(v012 ~ v025, design = dhs) # t-test for pvalue
 
-### education by urban and rural
-table(teendata$v106, teendata$v025) # check grouping
-svytable(~v106 + v025, design = dhs) # check grouping
+### education
+svytable(~v106 + v025, design = dhs)
+
+### HH wealth index
+svytable(~v190 + v025, design = dhs)
+
+### employment
+svytable(~employ_current + v025, design = dhs)
+
+### wantness
+svytable(~v225 + v025, design = dhs)
+
+teendata %>% group_by(v225) %>% summarize (n = n())
+teendata$v225
 
 # stratified analysis
 ## pregnancy outcomes
