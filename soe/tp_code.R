@@ -19,18 +19,19 @@ data <- ir %>% select(1:8, # ID and weight
                         p32_01:p32_20, # pregnancy outcomes
                         v531,v511, # Age at first sex/marriage
                         v384a:v384h, # exposure to family planning messages
-                        v467b, v467c, v467d, v467f # access to health services
+                        v467b, v467c, v467d, v467f # problem access to health services
                       ))
 
 ## extract selected variables from HR
 hh_data <- hr %>% select(1:7,
                          c(hv109_01:hv109_56,# highest education attained in the HH
+                           hv005, hv021,hv023, # weight, cluster(psu), strata (region*ur)
                            hv012, # total number of HH members
                            hv219 # sex of hh head
                          )) 
 
 # Recode
-## teenage pregnancy recode - outcome 1 = Yes, 0 = No 
+### teenage pregnancy recode - outcome 1 = Yes, 0 = No 
 data <- data %>% mutate(
   v013 = factor(v013),
   teen_preg = ifelse(v013 == 1 & (v201 > 0 | v245 > 0 | v213 == 1), 1, 0))
@@ -41,7 +42,7 @@ data <- data %>% mutate(
   employ_current = ifelse(v731 %in% c(2,3), 1, 0))
 table(data$employ_current,data$v731) # check grouping
 
-## knowledge on any contraceptive method - covariate 1 = Yes, 0 = No
+### knowledge on any contraceptive method - covariate 1 = Yes, 0 = No
 data <- data %>% mutate(
   contra_know_any = ifelse(v304_01== 1 | v304_02== 1 | v304_03== 1 | v304_04== 1 | v304_05== 1 |
                              v304_06== 1 | v304_07== 1 | v304_08== 1 | v304_09== 1 | v304_10== 1 |
@@ -59,12 +60,45 @@ data <- data %>% mutate(
   contra_future = ifelse(v362 %in% c(2,4), 1, 0))
 table(data$contra_future,data$v362) # check grouping
 
+### marital status recode from 5 to 3 categories
+data <- data %>% mutate(
+  marital = recode(v501, "0" = "0", "1" = "1", "2" = "1", "3" = "2", "4" = "2", "5" = "2"))
+table(data$marital,data$v501) # check grouping
+
+### age at first sex recode to recode 0, 97, 98 to na
+data <- data %>% 
+  mutate(v531 = ifelse(v531 %in% c(0, 97, 98), NA, v531))
+summary(data$v531) # check range
+
+### partner education recode 8 to na
+data <- data %>% 
+  mutate(v701 = ifelse(v701 == 8, NA, v701))
+data %>% group_by(v701) %>% summarize (n = n()) # check range
+
 ### access to informaiton about family planning - covariate 1 = Yes, 0 = No
 data <- data %>% mutate(
   fp_info = ifelse(v384a == 1 | v384b == 1 | v384c == 1 | v384d == 1 | 
                      v384e == 1 | v384f == 1 | v384g == 1 | v384h == 1, 1, 0))
 data %>% group_by(fp_info) %>% summarise(n = n()) # check grouping
 # alternative: data %>% group_by(v384a,v384b,v384c,v384d,v384e,v384f,v384g,v384h) %>% summarize (count = n())
+
+### recode hh education 98 to na
+hh_data <- hh_data %>%
+  mutate(across(starts_with("hv109_"), ~ifelse(. == 98, NA, .)))
+summary(hh_data$hv109_01) # check range
+
+### recode highest education attainment of a household
+hh_data <- hh_data %>%
+  rowwise() %>% # rowwise (household-wise) calculation
+  mutate(edu = ifelse(all(is.na(c_across(hv109_01:hv109_56))), NA, # return NA if all NA
+                      pmax(c_across(hv109_01:hv109_56), na.rm = TRUE))) # return max value of all columns
+
+hh_data %>% group_by(edu) %>% summarise(n = n()) # check grouping
+
+# join dataset
+join_data <- left_join(data, select(hh_data, hv001, hv002, hv005, hv021, hv023, hv012, hv219, edu), 
+                       by = c("v001" = "hv001", "v002" = "hv002")) # join by cluster and household numbers
+View(join_data) # check join
 
 # summary statistics
 ## sample size
@@ -104,18 +138,91 @@ t_test_age <- svyttest(v012 ~ v025, design = dhs) # t-test for pvalue
 
 ### education
 svytable(~v106 + v025, design = dhs)
+svychisq(~v106 + v025, design = dhs, statistics = "design")
 
 ### HH wealth index
 svytable(~v190 + v025, design = dhs)
+svychisq(~v190 + v025, design = dhs, statistics = "design")
 
 ### employment
 svytable(~employ_current + v025, design = dhs)
+svychisq(~employ_current + v025, design = dhs, statistics = "design")
 
-### wantness
+### wantness (no respondent - 2,982)
 svytable(~v225 + v025, design = dhs)
+svychisq(~v225 + v025, design = dhs, statistics = "design")
 
-teendata %>% group_by(v225) %>% summarize (n = n())
-teendata$v225
+### knoweldge on contraceptive methods
+svytable(~contra_know_any + v025, design = dhs)
+svychisq(~contra_know_any + v025, design = dhs, statistics = "design")
 
-# stratified analysis
-## pregnancy outcomes
+### current contraceptive use
+svytable(~contra_current + v025, design = dhs)
+svychisq(~contra_current + v025, design = dhs, statistics = "design")
+
+### intention to use contraception in the future
+svytable(~contra_future + v025, design = dhs)
+svychisq(~contra_future + v025, design = dhs, statistics = "design")
+
+### current marital status
+svytable(~marital + v025, design = dhs)
+svychisq(~marital + v025, design = dhs, statistics = "design")
+
+### age at first marriage/union
+svyby(formula = ~v511, by = ~v025, design = dhs, FUN = svymean, vartype=c("ci"),
+      na.rm = TRUE) # exlude NA - 2,576 did not respond/never been in a union
+svyttest(v511 ~ v025, design = dhs)
+
+### age at first sex
+svyby(formula = ~v531, by = ~v025, design = dhs, FUN = svymean, vartype=c("ci"),
+      na.rm = TRUE) # exlude NA - 2,576 did not respond/never been in a union
+svyttest(v531 ~ v025, design = dhs)
+
+### access to information about family planning
+svytable(~fp_info + v025, design = dhs)
+svychisq(~fp_info + v025, design = dhs, statistics = "design")
+
+### problem with access to health services - permission to go
+svytable(~v467b + v025, design = dhs)
+svychisq(~v467b + v025, design = dhs, statistics = "design")
+
+### problem with access to health services - money needed
+svytable(~v467c + v025, design = dhs)
+svychisq(~v467c + v025, design = dhs, statistics = "design")
+
+### problem with access to health services - distance
+svytable(~v467d + v025, design = dhs)
+svychisq(~v467d + v025, design = dhs, statistics = "design")
+
+### problem with access to health services - not want to go alone
+svytable(~v467f + v025, design = dhs)
+svychisq(~v467f + v025, design = dhs, statistics = "design")
+
+### partner education status
+svytable(~v701 + v025, design = dhs)
+svychisq(~v701 + v025, design = dhs, statistics = "design")
+
+### partner age
+svyby(formula = ~v730, by = ~v025, design = dhs, FUN = svymean, vartype=c("ci"),
+      na.rm = TRUE) # exlude NA - 2,576 did not respond/never been in a union
+svyttest(v730 ~ v025, design = dhs)
+
+## household characteristics
+### design using join dataset
+join_datateen <- join_data %>% filter (v013 ==1)
+dhs_join <- svydesign(id=~v021, strata =~v023, weights=~v005, data=join_datateen) # create design
+
+### household size
+svyby(formula = ~hv012, by = ~v025, design = dhs_join, FUN = svymean, vartype=c("ci"))
+svyttest(hv012 ~ v025, design = dhs_join)
+
+### highest household education attainment
+svytable(~edu + v025, design = dhs_join)
+svychisq(~edu + v025, design = dhs_join, statistics = "design")
+
+### sex of household head
+svytable(~hv219 + v025, design = dhs_join)
+svychisq(~hv219 + v025, design = dhs_join, statistics = "design")
+
+# Univariate analysis
+## 
