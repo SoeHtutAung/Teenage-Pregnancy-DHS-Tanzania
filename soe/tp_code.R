@@ -104,17 +104,17 @@ View(join_data) # check join
 ## sample size
 ### Sample size individuals and weighted in urban and rural
 sumtotal <- data %>% group_by (v025) %>%
-  summarise(total = n(), total_weight = round(sum(v005)/1000000,0)) 
+  summarise(total = n(), total_weight = round(sum(v005)/1e6,0)) 
 sumteen <- data %>% filter (v013 ==1) %>% group_by (v025) %>%
-  summarize (teen = n(), teen_weight = round(sum(v005)/1000000,0))
+  summarize (teen = n(), teen_weight = round(sum(v005)/1e6,0))
 samplesize_ur <- cbind(sumtotal,sumteen[,2:3]) # create dataframe
 print(samplesize_ur) # print table
 
 ### Sample size individuals and weighted in regions
 sumtotal_region <- data %>% group_by (v024) %>%
-  summarise(total = n(), total_weight = round(sum(v005)/1000000,0)) 
+  summarise(total = n(), total_weight = round(sum(v005)/1e6,0)) 
 sumteen_region <- data %>% filter (v013 ==1) %>% group_by (v024) %>%
-  summarize (teen = n(), teen_weight = round(sum(v005)/1000000,0))
+  summarize (teen = n(), teen_weight = round(sum(v005)/1e6,0))
 samplesize_region <- cbind(sumtotal_region,sumteen_region[,2:3]) # create dataframe
 print(samplesize_region) # print table
 
@@ -224,5 +224,78 @@ svychisq(~edu + v025, design = dhs_join, statistics = "design")
 svytable(~hv219 + v025, design = dhs_join)
 svychisq(~hv219 + v025, design = dhs_join, statistics = "design")
 
+# to correct and round up the numbers in svytables
+#test <- svytable(~hv219 + v025, design = dhs_join)
+#test1 <- round(test/1e6,0)
+
+# Missing values
+View(teendata)
+
+## check missing values return column 
+na_list <- colnames(teendata)[colSums(is.na(teendata)) > 0] # 2,982 missing values
+for (col in na_list) {
+  na_count <- sum(is.na(teendata[[col]]))
+  cat("Variable", col, "> NAs", na_count, "\n")
+}
+
+## check numbers
+teendata %>% summarise(total_weight = round(sum(v005)/1e6,0))  # number of total sample - 3,083
+round(svytotal(~teen_preg==1, design = dhs) / 1e6,0) # number of who ever pregnant (TP) - 678
+round(svytotal(~marital==1, design = dhs) / 1e6,0) # currently married - 564
+round(svytotal(~marital==2, design = dhs) / 1e6,0) # ended married - 56
+round(svytotal(~marital==0, design = dhs) / 1e6,0) # never married - 2463
+round(svytotal(~v213==1, design = dhs) / 1e6,0) # currently pregnant - 186
+
+### v225 - questions about current pregnancy - 186 are currently pregnant
+table(teendata$v213, teendata$v225, useNA = "always") # no missing variable
+round(svytable(~v213 + v225, design = dhs, na.action = na.pass)/1e6,0) 
+
+### p32 - questions about pregnancy outcome againsts livebirths
+table(teendata$v201, teendata$p32_01, useNA = "always") # first preg - all NA are never had a child v201 = 0 > no missing
+table(teendata$v201, teendata$p32_02, useNA = "always") # second preg - all NA v201 = 0 or 1 > no missing
+table(teendata$v201, teendata$p32_03, useNA = "always") # third preg - all NA v201 = 0,1,2 > no missing
+table(teendata$v201, teendata$p32_04, useNA = "always") # fourth preg - all NA v201 = 0,1,2,3 > no missing
+table(teendata$v201, teendata$p32_05, useNA = "always") # no one has fith preg
+
+### p32 - questions about pregnancy outcome againsts pregnancy loss
+table(teendata$v245, teendata$p32_01, useNA = "always") # all NA are among who never loss pregnancy
+round(svytable(~v245 + p32_02, design = dhs, na.action = na.pass)/1e6,0) # 473 never loss pregnancy, 
+
+### edu - MAR? 
+table (teendata$edu, teendata$teen_preg, useNA = "always") # 48 NAs (44 - No TP; 4 - TP)
+table (teendata$edu, teendata$v025, useNA = "always") # 48 NAs (23 - Urban; 25 - Rural)
+
+
+# check values of v201 and v245
+teendata %>% group_by(v025) %>% summarize(n = n())
+teendata$p32_01
+
+### v701, v730 - questions about partners 2,519 (2,463 - never and 56 - ended) are not currently married 
+table(teendata$marital, teendata$v701, useNA = "always") # can see all never/ended married are NA, and some NA from married
+round(svytable(~marital + v730, design = dhs, na.action = na.pass)/1e6,0) # cannot see where are those NA values 
+
+### v511 - age at first marriage/union - 2,576 did not respond/never been in a union
+table(teendata$marital, teendata$v511, useNA = "always") # can see all NA from never got married
+table(teendata$marital, teendata$v531, useNA = "always") # most NA from never got married
+round(svytable(~marital + v531, design = dhs, na.action = na.pass)/1e6,0) # cannot see where are those NA values
+
+### outcomes of teenage pregnancy by urban and rural
+round(svytotal(~teen_preg, design = dhs) / 1e6,0) # number of who ever pregnant (TP) - 678
+# total chidren born - 183 never had a life birth
+round(svytable(~teen_preg + v201 + v025, design = dhs, na.action = na.pass)/1e6,0)
+# pregnancy loss - 618 never had a pregnancy loss
+round(svytable(~teen_preg + v245 + v025, design = dhs, na.action = na.pass)/1e6,0)
+svychisq(~v245 + v025, design = dhs, statistics = "design") # chi-square test
+# currently pregnant - 186 are currently pregnant
+round(svytable(~teen_preg + v213 + v025, design = dhs, na.action = na.pass)/1e6,0)
+
+
+### compare tpr among regions
+
+### pregnancy outcomes matrix
+teendata %>% group_by(v201) %>% summarise(number = round(sum(v005)/1e6,0))
+round(svytable(~v245 + v201, design = dhs, na.action = na.pass)/1e6,0) # cross table of pregnancy loss and livebirths
+
+
 # Univariate analysis
-## 
+## tp vs urban/rural
