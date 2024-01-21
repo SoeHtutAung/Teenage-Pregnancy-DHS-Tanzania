@@ -10,6 +10,8 @@ library(dplyr)
 library(labelled)
 # install.packages("survey") # for survey design
 library(survey)
+# install.packages("car")
+library(car)
 ```
 
 ## 2. Load data
@@ -92,9 +94,12 @@ ir_data <- ir_data %>%  mutate(
 table(ir_data$contra_future,ir_data$v362, useNA = "always") # check grouping
 
 ### marital status recode from 5 to 3 categories
-ir_data <- ir_data %>% mutate(
-  marital = recode(v501, "0" = "0", "1" = "1", "2" = "1", "3" = "2", "4" = "2", "5" = "2"))
-table(ir_data$marital,ir_data$v501, ) # check grouping
+ir_data <- ir_data %>% 
+  mutate(
+    marital = dplyr::recode(v501, `0` = "0", `1` = "1", `2` = "1",
+                            `3` = "2", `4` = "2", `5` = "2")
+  )
+table(ir_data$marital,ir_data$v501, useNA = "always") # check grouping
 
 ### age at first sex recode to recode 0, 97, 98 to na
 ir_data <- ir_data %>% 
@@ -244,7 +249,7 @@ svyby(formula = ~v531, by = ~v025, design = dhs, FUN = svymean, vartype=c("ci"),
 svyttest(v531 ~ v025, design = dhs)
 ```
 
-### 8.2 **Current partner\'s characteristics**
+### 8.2 **Current partner's characteristics**
 
 ```{r partner}
 ### partner age
@@ -257,7 +262,7 @@ svytable(~v701 + v025, design = dhs)
 svychisq(~v701 + v025, design = dhs, statistics = "design")
 ```
 
-### **8.3 Socio-Economic** 
+### **8.3 Socio-Economic**
 
 ```{r sd_household}
 ### HH wealth index
@@ -417,41 +422,283 @@ table (teendata$edu, teendata$v025, useNA = "always") # 48 NAs (23 - Urban; 25 -
 
 ### 9.2 Subset final dataset, so that can omit NAs for regression
 
-We will omit:
-
--   Variables specific for pregnancy (wanted)
-
--   Variables specific for married (partner's characteristics, age at first married)
-
--   Variables related to married (age at first sex)
-
 ```{r finalsubset}
 # NOT DONE YET
 finaldata <- teendata %>% select (c(
-  vxxx, # outcome
-  vxxx, # exposure
-  vxxx, # socio demographic
-  vxxx, # socio economnic
-  vxxx, # health behaviour
-  vxxx, # problem access to services
-  vxxx # hh characteristics
+  v005, v021, v023, # for design
+  teen_preg, # outcome 
+  v025, # exposure
+  v024, # region
+  v012,v106,marital,  # socio demographic - age, education, marital,
+  v190,employ_current, # socio economnic - wealth, employment,
+  contra_know_any, fp_info, # health behaviour - knowledge contraceptive, heard about FP messages
+  v467b,v467c,v467d,v467f, # problem access to services - permission, money, distance, alone
+  hv012, hv219, edu, # hh characteristics - HH size, sex of hh head, highest edu in hh, 
+  v701, v730, v531, v511, contra_current # for univarite - partner education, partner age, age at first sex, age at first marriage, contraceptive use
 ))
 
-finaldata <- na.omit (finaldata)
+# relevel 4 problem to access variables
+finaldata$v467b <- relevel(factor(finaldata$v467b), ref = "2")
+finaldata$v467c <- relevel(factor(finaldata$v467c), ref = "2")
+finaldata$v467d <- relevel(factor(finaldata$v467d), ref = "2")
+finaldata$v467f <- relevel(factor(finaldata$v467f), ref = "2")
+
+# factorize 
+finaldata$teen_preg <- factor(finaldata$teen_preg)
+```
+
+```{r finaldesign}
+dhsfinal <- svydesign(id = ~v021, strata = ~v023, weights = ~v005, data = finaldata)
 ```
 
 ## 10. Regression
 
-### 10.1 Univariate
+### 10.1 Bivariate
 
-```{r}
+```{r bivariate}
+# v025: urban rural
+model_v025 <- svyglm(teen_preg ~ factor(v025),
+                    design = dhsfinal, family = binomial(), na.action = na.exclude)
+print (exp (coef(model_v025)[2]))
+print (exp (confint(model_v025)[2, ]))
+print (summary(model_v025)$coefficients[2,"Pr(>|t|)"])
 
+# v024: regions
+model_v024 <- svyglm(teen_preg ~ factor(v024),
+                    design = dhsfinal, family = binomial(), na.action = na.exclude)
+print (exp (coef(model_v024)))
+print (exp (confint(model_v024)))
+print (summary(model_v024)$coefficients[,"Pr(>|t|)"])
+
+# v012: age (Note: older girls have higher chance to get pregnant naturally)
+model_v012 <- svyglm(teen_preg ~ v012,
+                    design = dhsfinal, family = binomial(), na.action = na.exclude)
+print (exp (coef(model_v012)[2]))
+print (exp (confint(model_v012)[2, ]))
+print (summary(model_v012)$coefficients[2,"Pr(>|t|)"])
+
+# v106: education
+model_v106 <- svyglm(teen_preg ~ factor(v106),
+                    design = dhsfinal, family = binomial(), na.action = na.exclude)
+print (exp (coef(model_v106)))
+print (exp (confint(model_v106)))
+print (summary(model_v106)$coefficients[,"Pr(>|t|)"])
+
+# marital: marital status
+model_marital <- svyglm(teen_preg ~ factor(marital),
+                    design = dhsfinal, family = binomial(), na.action = na.exclude)
+print (exp (coef(model_marital)))
+print (exp (confint(model_marital)))
+print (summary(model_marital)$coefficients[,"Pr(>|t|)"])
+
+# v190: HH wealth index
+model_v190 <- svyglm(teen_preg ~ factor(v190),
+                    design = dhsfinal, family = binomial(), na.action = na.exclude)
+print (exp (coef(model_v190)))
+print (exp (confint(model_v190)))
+print (summary(model_v190)$coefficients[,"Pr(>|t|)"])
+
+# employ_current: Current employment status
+model_employ_current <- svyglm(teen_preg ~ factor(employ_current),
+                    design = dhsfinal, family = binomial(), na.action = na.exclude)
+print (exp (coef(model_employ_current)[2]))
+print (exp (confint(model_employ_current)[2, ]))
+print (summary(model_employ_current)$coefficients[2,"Pr(>|t|)"])
+
+# contra_know_any: knowledge on contraceptive methods
+model_contra_know_any <- svyglm(teen_preg ~ factor(contra_know_any),
+                    design = dhsfinal, family = binomial(), na.action = na.exclude)
+print (exp (coef(model_contra_know_any)[2]))
+print (exp (confint(model_contra_know_any)[2, ]))
+print (summary(model_contra_know_any)$coefficients[2,"Pr(>|t|)"])
+
+# fp_info: Heard about family planning message
+model_fp_info <- svyglm(teen_preg ~ factor(fp_info),
+                    design = dhsfinal, family = binomial(), na.action = na.exclude)
+print (exp (coef(model_fp_info)[2]))
+print (exp (confint(model_fp_info)[2, ]))
+print (summary(model_fp_info)$coefficients[2,"Pr(>|t|)"])
+
+# v467b: Problem in 'getting permission' to access health services
+model_v467b <- svyglm(teen_preg ~ factor(v467b),
+                    design = dhsfinal, family = binomial(), na.action = na.exclude)
+print (exp (coef(model_v467b)[2]))
+print (exp (confint(model_v467b)[2, ]))
+print (summary(model_v467b)$coefficients[2,"Pr(>|t|)"])
+
+# v467c: Problem in 'money needed' to access health services
+model_v467c <- svyglm(teen_preg ~ factor(v467c),
+                    design = dhsfinal, family = binomial(), na.action = na.exclude)
+print (exp (coef(model_v467c)[2]))
+print (exp (confint(model_v467c)[2, ]))
+print (summary(model_v467c)$coefficients[2,"Pr(>|t|)"])
+
+# v467d: Problem in 'distance' to access health services
+model_v467d <- svyglm(teen_preg ~ factor(v467d),
+                    design = dhsfinal, family = binomial(), na.action = na.exclude)
+print (exp (coef(model_v467d)[2]))
+print (exp (confint(model_v467d)[2, ]))
+print (summary(model_v467d)$coefficients[2,"Pr(>|t|)"])
+
+# v467f: Problem in 'not want to go alone' to access health services
+model_v467f<- svyglm(teen_preg ~ factor(v467f),
+                    design = dhsfinal, family = binomial(), na.action = na.exclude)
+print (exp (coef(model_v467f)[2]))
+print (exp (confint(model_v467f)[2, ]))
+print (summary(model_v467f)$coefficients[2,"Pr(>|t|)"])
+
+# hv012: Size of household
+model_hv012<- svyglm(teen_preg ~ hv012,
+                    design = dhsfinal, family = binomial(), na.action = na.exclude)
+print (exp (coef(model_hv012)[2]))
+print (exp (confint(model_hv012)[2, ]))
+print (summary(model_hv012)$coefficients[2,"Pr(>|t|)"])
+
+# hv219: Sex of household head - reference = 1 male
+model_hv219<- svyglm(teen_preg ~ factor(hv219),
+                    design = dhsfinal, family = binomial(), na.action = na.exclude)
+print (exp (coef(model_hv219)[2]))
+print (exp (confint(model_hv219)[2, ]))
+print (summary(model_hv219)$coefficients[2,"Pr(>|t|)"])
+```
+
+Couldn't calculate p-value for following bivariate models
+
+```{r bivariate_need na.omit data}
+# edu: Highest education attainment in a HH
+model_edu <- svyglm(teen_preg ~ factor(edu),
+                    design = dhsfinal, family = binomial(), na.action = na.exclude)
+print (exp (coef(model_edu)))
+print (exp (confint(model_edu)))
+#print (summary(model_edu)$coefficients[2,"Pr(>|t|)"]) # Issue here
+
+# v730: age
+model_v730<- svyglm(teen_preg ~ v730,
+                    design = dhsfinal, family = binomial(), na.action = na.exclude)
+print (exp (coef(model_v730)[2]))
+print (exp (confint(model_v730)[2,]))
+#print (summary(model_v730)$coefficients[2,"Pr(>|t|)"]) # issue here
+
+# v701: Partners education
+model_v701<- svyglm(teen_preg ~ factor(v701),
+                    design = dhsfinal, family = binomial(), na.action = na.exclude)
+print (exp (coef(model_v701)))
+print (exp (confint(model_v701)))
+# print (summary(model_v730)$coefficients[2,"Pr(>|t|)"]) # issue here
+
+# v531: Age at first sex
+model_v531 <- svyglm(teen_preg ~ v531,
+                    design = dhsfinal, family = binomial(), na.action = na.exclude)
+print (exp (coef(model_v531)[2]))
+print (exp (confint(model_v531)[2, ]))
+# print (summary(model_v531)$coefficients[2,"Pr(>|t|)"]) # issue here
+
+# v511: Age at first marriage/union
+model_v511 <- svyglm(teen_preg ~ v511,
+                    design = dhsfinal, family = binomial(), na.action = na.exclude)
+print (exp (coef(model_v511)[2]))
+print (exp (confint(model_v511)[2, ]))
+# print (summary(model_v511)$coefficients[2,"Pr(>|t|)"]) # issue here
+
+# contra_current: Current contraceptive use
+model_contra_current <- svyglm(teen_preg ~ factor(contra_current),
+                    design = dhsfinal, family = binomial(), na.action = na.exclude)
+print (exp (coef(model_contra_current)[2]))
+print (exp (confint(model_contra_current)[2, ]))
+#print (summary(model_contra_current)$coefficients[2,"Pr(>|t|)"]) # issue here
 ```
 
 ### 10.2 Multiple variable logistic regression
 
-Forward approach
+Forward approach:
+
+-   Model 1: Socio-demographic - age, education, marital status
 
 ```{r model1}
-# 
+# age, education, marital status
+modelm_1 <- svyglm(teen_preg ~ factor(v025) + 
+                      v012 + factor (v106) + factor (marital),
+                   design = dhsfinal, family = binomial(), na.action = na.exclude)
+
+print (exp (coef(modelm_1)))
+print (exp (confint(modelm_1)))
+print (summary(modelm_1)$coefficients[,"Pr(>|t|)"])
+```
+
+-   Model 2: Model 1+ Socio-economic - wealth index, employment
+
+```{r model2}
+# wealth index, employment
+modelm_2 <- svyglm(teen_preg ~ factor(v025) + 
+                     v012 + factor (v106) + factor (marital) + 
+                     factor (v190) + factor (employ_current), 
+                   design = dhsfinal, family = binomial(), na.action = na.exclude)
+
+print (exp (coef(modelm_2)))
+print (exp (confint(modelm_2)))
+print (summary(modelm_2)$coefficients[,"Pr(>|t|)"])
+```
+
+-   Model 3: Model 2 + Health behaviour - knowledge on contraceptive, heard family planning
+
+```{r model3}
+# knowledge on contraceptive, heard family planning
+modelm_3 <- svyglm(teen_preg ~ factor(v025) + 
+                     v012 + factor (v106) + factor (marital) + 
+                     factor (v190) + factor (employ_current) +
+                     factor (contra_know_any) + factor (fp_info),
+                   design = dhsfinal, family = binomial(), na.action = na.exclude)
+
+print (exp (coef(modelm_3)))
+print (exp (confint(modelm_3)))
+print (summary(modelm_3)$coefficients[,"Pr(>|t|)"])
+```
+
+-   Model 4: Model 3 + Problem with access to services - all 4
+
+```{r model4}
+# permission, money, distance, alone
+modelm_4 <- svyglm(teen_preg ~ factor(v025) + 
+                     v012 + factor (v106) + factor (marital) + 
+                     factor (v190) + factor (employ_current) +
+                     factor (contra_know_any) + factor (fp_info) +
+                     factor (v467b) + factor (v467c) +factor (v467d) +factor (v467f),
+                   design = dhsfinal, family = binomial(), na.action = na.exclude)
+
+print (exp (coef(modelm_4)))
+print (exp (confint(modelm_4)))
+print (summary(modelm_4)$coefficients[,"Pr(>|t|)"])
+```
+
+-   Model 5: Model 4 + HH characteristics - hh size, sex of hh head
+
+```{r model5}
+# hh size, sex of hh head
+modelm_5 <- svyglm(teen_preg ~ factor(v025) + 
+                     v012 + factor (v106) + factor (marital) + 
+                     factor (v190) + factor (employ_current) +
+                     factor (contra_know_any) + factor (fp_info) +
+                     factor (v467b) + factor (v467c) +factor (v467d) +factor (v467f) +
+                     hv012 + factor (hv219),
+                   design = dhsfinal, family = binomial(), na.action = na.exclude)
+
+print (exp (coef(modelm_5)))
+print (exp (confint(modelm_5)))
+print (summary(modelm_5)$coefficients[,"Pr(>|t|)"])
+```
+
+### 10.3 Check multicolinearity by VIF
+
+All 5 models are checked for multicolinearity.
+
+```{r VIF}
+# Calculate VIF values to check high VIF values (>5)
+car::vif(modelm_5)
+```
+
+### 10.4 Check assumptions
+
+```{r checkassumptions}
+par(mfrow = c(2, 2))
+plot(modelm_5)
 ```
