@@ -4,9 +4,6 @@ library(tidyverse)
 library(haven)
 library(survey)
 
-##added this comment to test push/pull
-##yay i think it's working now
-
 ##LOAD DATA
 ##read births data set
 births_BR <- read_dta("TZBR82FL.DTA")
@@ -78,6 +75,18 @@ births_clean <- births_clean %>%
   select(1:7, mum_age_pregnancy, b5, neo_mort, age_at_death_days, b4, b0, b20, b11, b12,
          m13, m14, m15, senior_delivery_attendant, m17, m19, m45, m66, m70, s1125, everything())
 
+##DATA DICTIONARY
+#births_clean data dictionary 
+variable_names_BR_clean <- names(births_clean)
+variable_labels_BR_clean <- sapply(births_clean, function(x) {
+  lbl <- attr(x, "label")
+  if (is.null(lbl)) "No label" else lbl
+})
+
+dict_births_BR <- data.frame(
+  variable = variable_names_BR_clean,
+  description = variable_labels_BR_clean
+)
 
 ##CALCULATIONS
 ##how many neonatal deaths?
