@@ -702,3 +702,5 @@ car::vif(modelm_5)
 par(mfrow = c(2, 2))
 plot(modelm_5)
 ```
+
+Test whether GitHub work
