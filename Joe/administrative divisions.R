@@ -4,7 +4,7 @@ library(ggplot2)
 
 # setwd("...")
 
-# National: 1 country outline
+# National: Country Outline
 natbound <- st_read(
   "SDR data/National Data/shps/sdr_national_data_dhs_2022.shp"
 )
