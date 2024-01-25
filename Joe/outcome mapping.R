@@ -66,3 +66,46 @@ sb_regional <-
 ggplot(sb_regional) +
   geom_sf(aes(fill=sb_rate)) +
   scale_fill_continuous(name = "Stillbirth Rate")
+
+##### URBAN
+
+# create a larger rate table stratifying by both residence AND region
+sb_resreg <- svyby(~stillbirth, ~residence+region, sb_design, svymean)
+
+sb_urban <- 
+  sb_resreg[which(sb_resreg$residence==1),c(2,4)] %>%
+  mutate(
+    sb_rate = round( 1000*stillbirthTRUE , 1)
+  )
+
+sb_urban <-
+  inner_join(
+    bound2,
+    sb_urban,
+    by = join_by(REGCODE==region)
+  )
+
+ggplot(sb_urban) +
+  geom_sf(aes(fill=sb_rate)) +
+  scale_fill_continuous(name = "Stillbirth Rate") +
+  ggtitle("Urban Stillbirth Rates in Tanzania","by Region")
+
+##### RURAL
+
+sb_rural <- 
+  sb_resreg[which(sb_resreg$residence==2),c(2,4)] %>%
+  mutate(
+    sb_rate = round( 1000*stillbirthTRUE , 1)
+  )
+
+sb_rural <-
+  inner_join(
+    bound2[-7,], # Need to take out Dar Es Salaam, which is visually small anyway
+    sb_rural,
+    by = join_by(REGCODE==region)
+  )
+
+ggplot(sb_rural) +
+  geom_sf(aes(fill=sb_rate)) +
+  scale_fill_continuous(name = "Stillbirth Rate") +
+  ggtitle("Rural Stillbirth Rates in Tanzania","by Region")
