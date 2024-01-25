@@ -12,6 +12,8 @@ library(labelled)
 library(survey)
 # install.packages("car")
 library(car)
+#install.packages ("forestplot")
+library(forestplot)
 ```
 
 ## 2. Load data
@@ -730,4 +732,31 @@ par(mfrow = c(2, 2))
 plot(modelm_5)
 ```
 
-Test whether GitHub work
+## 11. Plots
+
+### 11.1 Forest plot
+
+```{r forest_model5}
+# preapare a dataframe from model
+## Extract coefficients and confidence intervals
+coefs <- coef(modelm_5)
+ci <- confint(modelm_5)
+
+# Create a data frame for the forest plot
+forest_data <- data.frame(
+  variables = rownames(ci),
+  mean = coefs,
+  lower = ci[, 1],
+  upper = ci[, 2])
+
+# plot # NOT DONE YET
+forestplot(forest_data,
+           col = fpColors(box = "black",
+                          lines = "black",
+                          zero = "black"),
+           boxsize = 0.5,
+           xticks = c(-2, -1, 0, 1, 2),
+           xlab = "Odds Ratio (log scale)",
+           zero = 1,
+           main = "Forest Plot Model - 5")
+```
