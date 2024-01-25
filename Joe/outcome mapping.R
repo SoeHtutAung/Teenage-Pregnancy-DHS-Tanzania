@@ -1,6 +1,13 @@
 getwd() # setwd to 'TZDHS' folder
 setwd("...")
 
+### The GC folder has a guidebook and a csv file which shows attributes of each cluster
+### tz_clusters <- read.csv("Geospatial Data/TZGC81FL/TZGC81FL.csv")
+
+### The GE folder has the geospatial files
+### We can join to the csv above by DHSID if necessary
+### tz_map <- st_read("Geospatial Data/TZGE81FL/TZGE81FL.shp")
+
 # install.packages("sf")
 library(sf) # new package for spatial data
 # replaces 'rgdal' package which was discontinued Oct 2023
@@ -20,17 +27,42 @@ bound2 <- st_read("Geospatial Data/SDR data/DHS Boundaries/shps/sdr_subnational_
 perinatal <- read_dta("Survey Data/Pregnancy and Postnatal Care/TZNR82FL.DTA")
 # 7281 obs. of 928 variables; 6220 unique caseid
 
-### this needs to be put through the survey package still!! ###
+library(survey)
 
-# create a data frame (row=2,col=31) that has the stillbirth rate by region
-sb_region <-
+# create a data frame that has the required variables for survey,
+# as well as 'stillbirth' as a binary outcome
+sb_perinatal <-
   perinatal %>%
-  group_by(v024) %>%
-  summarise(
-    stillbirth = 1000*mean(p32==2)
+  mutate( sb=(p32==2) ) %>%
+  reframe(
+    wt = v005/1e6,
+    cluster = v021,
+    stratification = v023,
+    region = v024,
+    residence = v025,
+    stillbirth = p32==2
+  )
+
+# Create the survey design
+sb_design <-
+  svydesign(
+    id = ~cluster,
+    strata = ~stratification,
+    weights = ~wt,
+    data = sb_perinatal
+  )
+
+# Use the survey package to get rates
+sb_ratio <- as.data.frame(
+  svyby(~stillbirth, ~region, sb_design, svymean)
+) %>%
+  mutate(
+    sb_rate = round( 1000*stillbirthTRUE , 1 )
   )
 
 # Now add those stillbirth rates to the '.shp' data frame using a join
-sb_region <-
-  inner_join( bound2, sb_region, by = join_by(REGCODE==v024) )
-ggplot(sb_region) + geom_sf(aes(fill=stillbirth))
+sb_regional <-
+  inner_join( bound2, sb_ratio, by = join_by(REGCODE==region) )
+ggplot(sb_regional) +
+  geom_sf(aes(fill=sb_rate)) +
+  scale_fill_continuous(name = "Stillbirth Rate")
