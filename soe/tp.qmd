@@ -199,6 +199,7 @@ print(tpr_ur*1000)
 tpr_region_raw <- svyby(~(teen_preg == 1), ~v024, dhs, svymean, vartype=c("se","ci"))
 tpr_region <- tpr_region_raw [,c(1,3)]
 print(tpr_region*1000)
+# write.csv(tpr_region, "tp_map_region.csv", row.names = T) # to save csv
 
 ### teenage pregnancy rate by strata for mapping - urban/rural in each region
 tpr_strata_raw <- svyby(~(teen_preg == 1), ~v024 + v025, dhs, svymean, vartype=c("ci"))
