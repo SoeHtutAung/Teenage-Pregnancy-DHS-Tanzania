@@ -94,12 +94,31 @@ ir_data <- ir_data %>%  mutate(
 table(ir_data$contra_future,ir_data$v362, useNA = "always") # check grouping
 
 ### marital status recode from 5 to 3 categories
-ir_data <- ir_data %>% 
-  mutate(
+ir_data <- ir_data %>% mutate(
     marital = dplyr::recode(v501, `0` = "0", `1` = "1", `2` = "1",
-                            `3` = "2", `4` = "2", `5` = "2")
-  )
+                            `3` = "2", `4` = "2", `5` = "2"))
 table(ir_data$marital,ir_data$v501, useNA = "always") # check grouping
+
+### education status regroup
+ir_data <- ir_data %>% mutate(
+    edu_gp = dplyr::recode(v106, `0` = "0", `1` = "1", `2` = "2", `3` = "2")) # 8 > NA is not coded as there is no 8
+table(ir_data$edu_gp,ir_data$v106, useNA = "always") # check grouping
+
+### number of live birth regroup
+ir_data <- ir_data %>% mutate(
+  birth_gp = case_when(
+      v201 == 0 ~ "0",
+      v201 == 1 ~ "1",
+      v201 >= 2 ~ "2"))
+table(ir_data$birth_gp,ir_data$v201, useNA = "always") # check grouping
+
+### number of pregnancy loss regroup
+ir_data <- ir_data %>% mutate(
+  loss_gp = case_when(
+      v245 == 0 ~ "0",
+      v245 == 1 ~ "1",
+      v245 >= 2 ~ "2"))
+table(ir_data$loss_gp,ir_data$v245, useNA = "always") 
 
 ### age at first sex recode to recode 0, 97, 98 to na
 ir_data <- ir_data %>% 
@@ -110,6 +129,7 @@ summary(ir_data$v531) # check range
 ir_data <- ir_data %>% 
   mutate(v701 = ifelse(v701 == 8, NA, v701))
 ir_data %>% group_by(v701) %>% summarize (n = n()) # check range
+
 
 ### access to informaiton about family planning - covariate 1 = Yes, 0 = No
 ir_data <- ir_data %>% mutate(
@@ -212,12 +232,12 @@ tpr_strata <- tpr_strata %>% mutate (tpr = tpr_strata[,3]*100)
 
 ```{r teenpregoutcome}
 # pregnancy loss - 183 never had a live birth
-round(svytable(~teen_preg + v201 + v025, design = dhs, na.action = na.pass)/1e6,0)
-svychisq(~v201 + v025, design = dhs, statistics = "design") # chisq for v201vsv025 means number of livebirths against urban/rural
+round(svytable(~teen_preg + birth_gp + v025, design = dhs, na.action = na.pass)/1e6,0)
+svychisq(~birth_gp + v025, design = dhs, statistics = "design") # chisq for birth_gpvsv025 means number of livebirths against urban/rural
 
 # pregnancy loss - 618 never had a pregnancy loss
-round(svytable(~teen_preg + v245 + v025, design = dhs, na.action = na.pass)/1e6,0)
-svychisq(~v245 + v025, design = dhs, statistics = "design") # chisq for v245vsv025 means pregnancy loss against urban/rural
+round(svytable(~teen_preg + loss_gp + v025, design = dhs, na.action = na.pass)/1e6,0)
+svychisq(~loss_gp + v025, design = dhs, statistics = "design") # chisq for loss_gpvsv025 means pregnancy loss against urban/rural
 ```
 
 ## 8. Descriptive statistics, disaggregated by urban and rural
@@ -238,8 +258,8 @@ svyby(formula = ~v012, by = ~v025, design = dhs, FUN = svymean, vartype=c("ci"))
 svyttest(v012 ~ v025, design = dhs) # t-test for pvalue
 
 ### education
-svytable(~v106 + v025, design = dhs)
-svychisq(~v106 + v025, design = dhs, statistics = "design")
+svytable(~edu_gp + v025, design = dhs)
+svychisq(~edu_gp + v025, design = dhs, statistics = "design")
 
 ### current marital status
 svytable(~marital + v025, design = dhs)
@@ -410,14 +430,14 @@ table(teendata$marital, teendata$v531, useNA = "always") # most NA from never go
 
 ```{r na_pregorder}
 ### p32 - questions about pregnancy outcome againsts livebirths
-table(teendata$v201, teendata$p32_01, useNA = "always") # first preg - all NA are never had a child v201 = 0 > no missing
-table(teendata$v201, teendata$p32_02, useNA = "always") # second preg - all NA v201 = 0 or 1 > no missing
-table(teendata$v201, teendata$p32_03, useNA = "always") # third preg - all NA v201 = 0,1,2 > no missing
-table(teendata$v201, teendata$p32_04, useNA = "always") # fourth preg - all NA v201 = 0,1,2,3 > no missing
-table(teendata$v201, teendata$p32_05, useNA = "always") # no one has fith preg
+table(teendata$birth_gp, teendata$p32_01, useNA = "always") # first preg - all NA are never had a child birth_gp = 0 > no missing
+table(teendata$birth_gp, teendata$p32_02, useNA = "always") # second preg - all NA birth_gp = 0 or 1 > no missing
+table(teendata$birth_gp, teendata$p32_03, useNA = "always") # third preg - all NA birth_gp = 0,1,2 > no missing
+table(teendata$birth_gp, teendata$p32_04, useNA = "always") # fourth preg - all NA birth_gp = 0,1,2,3 > no missing
+table(teendata$birth_gp, teendata$p32_05, useNA = "always") # no one has fith preg
 
 ### p32 - questions about pregnancy outcome againsts pregnancy loss
-table(teendata$v245, teendata$p32_01, useNA = "always") # all NA are among who never loss pregnancy
+table(teendata$loss_gp, teendata$p32_01, useNA = "always") # all NA are among who never loss pregnancy
 ```
 
 **edu** - when checking un-weighted data, 48 out of 3,142 records about edu are NAs. **Finding** - Will use complete case
@@ -436,7 +456,7 @@ finaldata <- teendata %>% select (c(
   teen_preg, # outcome 
   v025, # exposure
   v024, # region
-  v012,v106,marital,  # socio demographic - age, education, marital,
+  v012,edu_gp,marital,  # socio demographic - age, education, marital,
   v190,employ_current, # socio economnic - wealth, employment,
   contra_know_any, fp_info, # health behaviour - knowledge contraceptive, heard about FP messages
   v467b,v467c,v467d,v467f, # problem access to services - permission, money, distance, alone
@@ -485,11 +505,11 @@ print (exp (confint(model_v012)[2, ]))
 print (summary(model_v012)$coefficients[2,"Pr(>|t|)"])
 
 # v106: education
-model_v106 <- svyglm(teen_preg ~ factor(v106),
+model_edu <- svyglm(teen_preg ~ factor(edu_gp),
                     design = dhsfinal, family = binomial(), na.action = na.exclude)
-print (exp (coef(model_v106)))
-print (exp (confint(model_v106)))
-print (summary(model_v106)$coefficients[,"Pr(>|t|)"])
+print (exp (coef(model_edu)))
+print (exp (confint(model_edu)))
+print (summary(model_edu)$coefficients[,"Pr(>|t|)"])
 
 # marital: marital status
 model_marital <- svyglm(teen_preg ~ factor(marital),
@@ -624,7 +644,7 @@ Forward approach:
 ```{r model1}
 # age, education, marital status
 modelm_1 <- svyglm(teen_preg ~ factor(v025) + 
-                      v012 + factor (v106) + factor (marital),
+                      v012 + factor (edu_gp) + factor (marital),
                    design = dhsfinal, family = binomial(), na.action = na.exclude)
 
 print (exp (coef(modelm_1)))
@@ -637,7 +657,7 @@ print (summary(modelm_1)$coefficients[,"Pr(>|t|)"])
 ```{r model2}
 # wealth index, employment
 modelm_2 <- svyglm(teen_preg ~ factor(v025) + 
-                     v012 + factor (v106) + factor (marital) + 
+                     v012 + factor (edu_gp) + factor (marital) + 
                      factor (v190) + factor (employ_current), 
                    design = dhsfinal, family = binomial(), na.action = na.exclude)
 
@@ -651,7 +671,7 @@ print (summary(modelm_2)$coefficients[,"Pr(>|t|)"])
 ```{r model3}
 # knowledge on contraceptive, heard family planning
 modelm_3 <- svyglm(teen_preg ~ factor(v025) + 
-                     v012 + factor (v106) + factor (marital) + 
+                     v012 + factor (edu_gp) + factor (marital) + 
                      factor (v190) + factor (employ_current) +
                      factor (contra_know_any) + factor (fp_info),
                    design = dhsfinal, family = binomial(), na.action = na.exclude)
@@ -666,7 +686,7 @@ print (summary(modelm_3)$coefficients[,"Pr(>|t|)"])
 ```{r model4}
 # permission, money, distance, alone
 modelm_4 <- svyglm(teen_preg ~ factor(v025) + 
-                     v012 + factor (v106) + factor (marital) + 
+                     v012 + factor (edu_gp) + factor (marital) + 
                      factor (v190) + factor (employ_current) +
                      factor (contra_know_any) + factor (fp_info) +
                      factor (v467b) + factor (v467c) +factor (v467d) +factor (v467f),
@@ -682,7 +702,7 @@ print (summary(modelm_4)$coefficients[,"Pr(>|t|)"])
 ```{r model5}
 # hh size, sex of hh head
 modelm_5 <- svyglm(teen_preg ~ factor(v025) + 
-                     v012 + factor (v106) + factor (marital) + 
+                     v012 + factor (edu_gp) + factor (marital) + 
                      factor (v190) + factor (employ_current) +
                      factor (contra_know_any) + factor (fp_info) +
                      factor (v467b) + factor (v467c) +factor (v467d) +factor (v467f) +
