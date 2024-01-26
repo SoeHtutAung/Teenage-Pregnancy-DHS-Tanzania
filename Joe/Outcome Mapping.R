@@ -125,8 +125,6 @@ rural_map <-
   # scale_fill_viridis(name = "Stillbirth Rate") +
   ggtitle("Rural Stillbirth Rates in Tanzania","by Region")
 
-urban_map + rural_map + plot_layout(nrow = 2)
-
 ################################3
 
 sb_reg_dif <-
@@ -149,7 +147,8 @@ sb_dif_map <-
     by = join_by(REGCODE==region)
   )
 
-ggplot(sb_dif_map) +
+sb_dif_map <-
+  ggplot(sb_dif_map) +
   geom_sf(aes(fill=sb_dif)) +
   scale_fill_manual(
     name = 'Urban - Rural',
@@ -157,4 +156,39 @@ ggplot(sb_dif_map) +
   ) +
   ggtitle("Increase in Stillbirths in Urban Areas","Per 1000 Pregnancy Outcomes by Region")
 
-  
+########################################################################
+
+sb_reg_OR <-
+  inner_join(
+    sb_urban[,1:2],
+    sb_rural[,1:2],
+    by = join_by(region)
+  ) %>%
+  mutate(
+    sb_OR = cut(
+      stillbirthTRUE.x / stillbirthTRUE.y ,
+      c(-.01,0,1,2,5,Inf)
+    )
+  )
+
+sb_OR_map <-
+  inner_join(
+    bound2,
+    sb_reg_OR,
+    by = join_by(REGCODE==region)
+  )
+
+sb_OR_map <-
+  ggplot(sb_OR_map) +
+  geom_sf(aes(fill=sb_OR)) +
+  scale_fill_manual(
+    name = 'Urban / Rural',
+    values = c("darkblue","skyblue","white","pink","darkred")
+  ) +
+  ggtitle("Increase in Stillbirth Ratio in Urban Areas","by Region")
+
+########################################################################
+
+urban_map + rural_map + plot_layout(nrow = 2)
+
+sb_dif_map + sb_OR_map + plot_layout(ncol = 2)
