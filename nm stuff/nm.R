@@ -82,10 +82,13 @@ births_last3years$m19 <- as.numeric(births_last3years$m19)
 births_last3years <- births_last3years %>%
   mutate(m19 = ifelse(m19 %in% c(9996, 9998), NA, m19))
 
+##divide bmi v445 by 100 and 9998 as flagged
+births_last3years$v445 <- as.numeric(births_last3years$v445)/100
+
 ##remove uneeded recoded variables
 births_clean <- births_last3years %>% 
   select(-v011, -v008, -b3, -m3a, -m3b, -m3c, -m3d
-  , -m3e, -m3f, -m3g, -m3h, -m3i, -m3k, m3n
+  , -m3e, -m3f, -m3g, -m3h, -m3i, -m3k, -m3n
   , - test, -v012, -b6, -b7)
 
 ##reorder dataframe
@@ -315,4 +318,31 @@ ggplot(data= as.data.frame(twin_count_ur_survived) , aes(x=urban_rural, y=Freq, 
   geom_bar(stat="identity")
 births_clean$b0
 
+##BMI v445
+bmi_quantiles_ur_nm <- svyby(~v445, ~urban_rural + neo_mort, design = all_weighted, 
+                              svyquantile, c(0, 0.25, 0.5, 0.75, 1), ci = TRUE)
+##use subsets to make boxplot of ages 
+svyboxplot(v445 ~ urban_rural, NM,
+           main="BMI for those who had a neonatal mortality by urban and rural areas", ylab = "BMI")
+svyboxplot(v445 ~ urban_rural, survived,
+           main="BMI for those without a neonatal mortality by urban and rural areas", ylab = "BMI")
 
+##subsets for hist
+svyhist(~v445, NM)
+svyhist(~v445, survived)
+
+
+##v201 number of children ever born
+mp_quantiles_ur_nm <- svyby(~v201, ~urban_rural + neo_mort, design = all_weighted, 
+                             svyquantile, c(0, 0.25, 0.5, 0.75, 1), ci = TRUE)
+##use subsets to make boxplot of ages 
+svyboxplot(v201 ~ urban_rural, NM,
+           main="No. of pregancies for those who had a neonatal mortality by urban and rural areas", ylab = "Pregancies")
+svyboxplot(v201 ~ urban_rural, survived,
+           main="No. of pregancies for those without a neonatal mortality by urban and rural areas", ylab = "Pregnanies")
+
+##subsets for hist
+svyhist(~v201, NM)
+svyhist(~v201, survived)
+
+##v245 pregancy losses
