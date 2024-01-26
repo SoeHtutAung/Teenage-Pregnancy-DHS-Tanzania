@@ -732,9 +732,83 @@ par(mfrow = c(2, 2))
 plot(modelm_5)
 ```
 
+### 10.5 Model fitting
+
+Remove outliers, log transformation and taking out not significant variables: NO DIFFERENCE
+
+```{r modelfit}
+# check 10 outliers *** only after generating model ***
+# plot(modelfit, which = 4, id.n = 20) 
+# remove outliers
+fitdata <- finaldata [- c(70,178,445,509,721,769,904,1216,1650,
+1686,1721,1783,1787,1823,1839,1856,2008,2065,2066),]
+#dim(fitdata)
+
+# create design using fitdata
+dhsfit <- svydesign(id = ~v021, strata = ~v023, weights = ~v005, data = fitdata)
+
+# develop model by (1) using log transformed quantitative (2) remove < 0.05 variables from model 1 - 4
+modelfit <- svyglm(teen_preg ~ factor(v025) + 
+                     log(v012) + factor (edu_gp) + factor (marital) + 
+                     # factor (v190) + factor (employ_current) +
+                     factor (contra_know_any) + factor (fp_info) +
+                     # factor (v467d) + factor (v467c) +
+                     factor (v467b) + factor (v467f) +
+                     # factor (hv219) + 
+                     log(hv012),
+                   design = dhsfit, family = binomial(),
+                   na.action = na.exclude)
+
+# diagnose model
+plot(modelfit)
+
+# testing summ package for summary and forest plot
+## summarizing, can check colinearlity together
+summ(modelfit, vifs = TRUE) # lowest AIC so far AIC = 1500.12 
+summ(modelm_5, vifs = TRUE)
+
+## plotting
+plot_summs(modelfit) # only one model
+plot_summs(fitted = modelfit, full = modelm_5) # compare full vs fitted
+```
+
+Alternative dataset - using only married: NO DIFFERENCE
+
+```{r alternative}
+# remove married
+marrydata <- finaldata %>% filter (marital != 1)
+dim(marrydata)
+# marrydata <- marrydata [- c(1404,55,1488,1434,2201,1521),] # no difference
+
+# create design using fitdata
+dhsmarry <- svydesign(id = ~v021, strata = ~v023, weights = ~v005, data = marrydata)
+
+# develop model by (1) using log transformed quantitative (2) remove < 0.05 variables from model 1 - 4
+modelmarry <- svyglm(teen_preg ~ factor(v025) + 
+                     log(v012) + factor (edu_gp) + # factor (marital) + 
+                     # factor (v190) + factor (employ_current) +
+                     factor (contra_know_any) + factor (fp_info) +
+                     # factor (v467d) + factor (v467c) +
+                     factor (v467b) + factor (v467f) +
+                     # factor (hv219) + 
+                     log(hv012),
+                   design = dhsmarry, family = binomial(),
+                   na.action = na.exclude)
+
+# diagnose model
+plot(modelmarry)
+
+# testing summ package for summary and forest plot
+## summarizing, can check colinearlity together
+summ(modelmarry, vifs = TRUE)
+
+## plotting
+plot_summs(modelmarry) # only one model
+```
+
 ## 11. Plots
 
-### 11.1 Forest plot
+### 11.1 Forest plot (can use summ of jtools package)
 
 ```{r forest_model5}
 # preapare a dataframe from model
