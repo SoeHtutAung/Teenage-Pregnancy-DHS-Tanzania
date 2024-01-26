@@ -99,7 +99,7 @@ count(perinatal,v025)
       # 483b: 11-14 motorised, 21-24 non-motorised, 96 other
 # Ethnicity (v131) not asked in DHS-8; all NAs
 
-    perinatal$v190a #wealth
+    count(perinatal,v190) #wealth
     svytable(~v190+stillbirth+v025,mysb_design)
     # explain why we're not using 190a
 
