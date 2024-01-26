@@ -75,7 +75,11 @@ sb_resreg <- svyby(~stillbirth, ~residence+region, sb_design, svymean)
 sb_urban <- 
   sb_resreg[which(sb_resreg$residence==1),c(2,4)] %>%
   mutate(
-    sb_rate = round( 1000*stillbirthTRUE , 1)
+    sb_rate = round( 1000*stillbirthTRUE , 1),
+    sb_rate_bins = cut(
+      round( 1000*stillbirthTRUE , 1),
+      breaks = c(-0.01,1,10,25,50,110)
+    )
   )
 
 sb_urban <-
@@ -85,9 +89,13 @@ sb_urban <-
     by = join_by(REGCODE==region)
   )
 
-ggplot(sb_urban) +
-  geom_sf(aes(fill=sb_rate)) +
-  scale_fill_continuous(name = "Stillbirth Rate") +
+urban_map <- 
+  ggplot(sb_urban) +
+  geom_sf(aes(fill=sb_rate_bins)) +
+  scale_fill_manual(
+    values = c("darkblue","skyblue","white","pink","darkred")
+  ) +
+  # scale_fill_continuous(name = "Stillbirth Rate") +
   ggtitle("Urban Stillbirth Rates in Tanzania","by Region")
 
 ##### RURAL
@@ -95,7 +103,11 @@ ggplot(sb_urban) +
 sb_rural <- 
   sb_resreg[which(sb_resreg$residence==2),c(2,4)] %>%
   mutate(
-    sb_rate = round( 1000*stillbirthTRUE , 1)
+    sb_rate = round( 1000*stillbirthTRUE , 1),
+    sb_rate_bins = cut(
+      round( 1000*stillbirthTRUE , 1),
+      breaks = c(-0.01,1,10,25,50,110)
+    )
   )
 
 sb_rural <-
@@ -105,7 +117,13 @@ sb_rural <-
     by = join_by(REGCODE==region)
   )
 
-ggplot(sb_rural) +
-  geom_sf(aes(fill=sb_rate)) +
-  scale_fill_continuous(name = "Stillbirth Rate") +
+rural_map <- 
+  ggplot(sb_rural) +
+  geom_sf(aes(fill=sb_rate_bins)) +
+  scale_fill_manual(
+    values = c("darkblue","skyblue","white","pink","darkred")
+  ) +
+  # scale_fill_viridis(name = "Stillbirth Rate") +
   ggtitle("Rural Stillbirth Rates in Tanzania","by Region")
+
+urban_map + rural_map + plot_layout(nrow = 2)
