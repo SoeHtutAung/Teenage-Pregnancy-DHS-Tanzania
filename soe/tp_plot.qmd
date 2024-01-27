@@ -1,0 +1,30 @@
+---
+title: "Plot"
+format: html
+editor: visual
+---
+
+```{r setup}
+library(ggplot2)
+library(jtools)
+```
+
+```{r load}
+load("tp.RData") # Given that all objects are already saved inside RData
+```
+
+## 1. Plots
+
+### 1.1 Forest plot for regressions (summ of jtools package)
+
+```{r forestplot}
+## plotting
+plot_summs(modelfit) # only one model
+plot_summs(fitted = modelfit, full = modelm_5) # compare full vs fitted
+```
+
+### 1.2 Descriptive
+
+```{r plots}
+
+```
