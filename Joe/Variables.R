@@ -1,3 +1,5 @@
+## Load NR file into "perinatal"
+
 #####
 
 dict_indv_IR <- data.frame(
@@ -24,6 +26,17 @@ perinatal[
   "caseid"
 ]
 # 6220 with >0 pregnancy outcomes
+
+######### Create the survey object ############################################
+sbp <- perinatal %>%
+  mutate(
+    wt = v005/1e6,
+    stillbirth = (p32==2),
+    birth_age = (p3-v011)/12
+  )
+mysb_design <- svydesign( id=~v021, strata=~v023, weights=~wt, data=sbp )
+
+###############################################################################
 
 ##### Main Variables of Interest
 
@@ -55,59 +68,29 @@ count(Individual,v025)
 count(perinatal,v025)
 # 2087 urban, 5194 rural
 
-##### The 'p's
-
-# pord: pregnancy order number; cts 1-17
-# p0: pregnancy is multiple; 0 is singleton, 1 first twin, 2 second twin
-# p3: End of pregnancy (cmc)
-# p4: sex of child; 1 male, 2 female, NA (termination) n=707
-# p11 & p12?
-# p16: child's line number in HH; 0 unlisted (173), 2-50, NA (921)
-# p18: End of pregnancy (cdc)
-
-##### The 'm's
-
-# m1: number of tetanus injections before birth;
-  # 0 none (1234), 7 7+ (4), 8 dk (30), NA (1456) 
-# m1a: number of tetanus injections before pregnancy;
-  # 0 none (653), 7 7+ (16), 8 dk (39), NA (4674) 
-# m1d: years ago received last tetanus injection before pregnancy; 5344 NAs
-# m1e: last tetanus injection before pregnancy (cmc); 5344 NAs
-# m2's: attended by... with 1328 NA's more than 2 yrs
-
-# m10: wanted pregnancy when became pregnant;
-  # 1 then 2 later 3 no more
-# m11: desired time would have waited;
-  # 101:152 months, 201:233 years, 998 dk (119), NA (5441) 
-# :m82, mh17:mh25
-
-##### The 's's
-
-
-"
-b0 multiple birth indicator
-b3 DOB of child
-b11 preceding birth interval
-b20 duration of pregnancy
-
-"
-
 # 19 risk factors assessed in the systematic review (from 54 mentioned across the papers)
 
 # Sociodemographic characteristics
   # maternal age - strong - usually cut up into age groups
-    hist(perinatal$v013) # age at interview
+    hist(perinatal$v013) # age group at interview
     hist((perinatal$p3 - perinatal$v011)/12)
+    svyby(~birth_age, ~v025+stillbirth, mysb_design, svymean)
+    # round(svytable(~v013+v025+stillbirth, mysb_design),2)
+    # 
   # educational attainment - strong - cut along primary edu
     count(perinatal,v106)
     # 0 none, 1 primary, 2 secondary, 3 higher
     # no 8's in NR!
+    sb_edu <- svytable(~v106+v025+stillbirth, mysb_design)
+    
   # marital status
     count(perinatal, v501)
     # current status, unordered factor
     # 0 never, 1 married, 2 living with, 3 widowed, 4 divorced, 5 separated
     # exploratory: v221, v535, v542, v544, v705
     # husband: v701:v705, v715, v729:v730, v739, v743a:v746
+    svytable(~v501+v025+stillbirth, mysb_design)
+    
   # place of residence
     count(perinatal, v025)
     # factor of interest!
@@ -115,7 +98,11 @@ b20 duration of pregnancy
       # 483a: 0-599, 600+
       # 483b: 11-14 motorised, 21-24 non-motorised, 96 other
 # Ethnicity (v131) not asked in DHS-8; all NAs
-perinatal$v190 #wealth
+
+    count(perinatal,v190) #wealth
+    svytable(~v190+stillbirth+v025,mysb_design)
+    # explain why we're not using 190a
+
 count(Individual,v714) # currently working
 head(Individual$v732) # respondent employed all year/seasonal
 count(perinatal,v717)
@@ -126,34 +113,46 @@ count(perinatal,v717)
     count(perinatal, m14)
     # 0 none (635), 1-16 (most), 98 don't know (23), NA (1328)
     # exploratory: m13, m13a, m57a:m57x, s417aa:s417ad
+    # 0, 1-3, 4+, 98, NA
+    sb_anc <- as.data.frame(
+      svytable(~m14+stillbirth+v025, mysb_design)
+    )
+      
   # antepartum hemorrhage - SIG
   # birth weight - SIG - cutoffs 2.5kg , 4kg
-    count(perinatal, m19)
+    count(perinatal, m19) # all stillbirths not weighed
     # 500:6000 grams, 9996 not weighed (1240), 9998 dk (176), NA (707)
     # m19a: of 5158 w/ wt, 3625 from written card, 1533 from memory
   # gestational age
     count(perinatal, p20)
+    sb_gest <- as.data.frame(
+      svytable(~p20+stillbirth+v025, mysb_design)
+    )
+    
   # parity
     #v224?
   # mode of arrival (referral or home) - SIG
   # sex of the newborn
-    count(perinatal, p4)
+    # count(perinatal, p4)
     # 1 male, 2 female, NA (termination) n=707
+    # all stillbirths are in NAs!
   # history of previous stillbirth - SIG
-    # v228?
+    # v228 is only history of previous termination of pregnancy
   # mode of delivery
   # multiple gestations
     count(perinatal, p0)
     # 0 single (7057), 1 & 2 twins (ordered; 112 each)
   # PROM (Premature Rupture of Membrane)
-count(Individual,v225) #wanted pregnancy 
+count(perinatal,v225) #wanted pregnancy 
   # 1 then 2 later 3 not at all
-
+  # 575 responses, 6706 NAs
+  svytable(~v225+stillbirth+v025, mysb_design)
 
 # Medical-related factors
   # anemia - SIG
     count(perinatal, v457)
     # ordered 1:4 decreasing severity, NA (3643)
+    svytable(~v457+stillbirth+v025, mysb_design)
   # DM (Diabetes Mellitus)
   # HIV serostatus
   # hypertension (HPN) - SIG
@@ -162,9 +161,51 @@ count(Individual,v225) #wanted pregnancy
     # 0 no, 1 yes, NA (573)
 perinatal$v445 #BMI
 perinatal$m17 #C section
-perinatal$s1125 #blood pressure 
+  svytable(~m17+stillbirth+v025, mysb_design)
+perinatal$s1125 #blood pressure
+  svytable(~s1125+stillbirth+v025, mysb_design)
 
 
+##################################################################
+  
+  ##### The 'p's
+  
+  # pord: pregnancy order number; cts 1-17
+  # p0: pregnancy is multiple; 0 is singleton, 1 first twin, 2 second twin
+  # p3: End of pregnancy (cmc)
+  # p4: sex of child; 1 male, 2 female, NA (termination) n=707
+  # p11 & p12?
+  # p16: child's line number in HH; 0 unlisted (173), 2-50, NA (921)
+  # p18: End of pregnancy (cdc)
+  
+  ##### The 'm's
+  
+  # m1: number of tetanus injections before birth;
+  # 0 none (1234), 7 7+ (4), 8 dk (30), NA (1456) 
+  # m1a: number of tetanus injections before pregnancy;
+  # 0 none (653), 7 7+ (16), 8 dk (39), NA (4674) 
+  # m1d: years ago received last tetanus injection before pregnancy; 5344 NAs
+  # m1e: last tetanus injection before pregnancy (cmc); 5344 NAs
+  # m2's: attended by... with 1328 NA's more than 2 yrs
+  
+  # m10: wanted pregnancy when became pregnant;
+  # 1 then 2 later 3 no more
+  # m11: desired time would have waited;
+  # 101:152 months, 201:233 years, 998 dk (119), NA (5441) 
+  # :m82, mh17:mh25
+  
+  ##### The 's's
+  
+  
+  "
+b0 multiple birth indicator
+b3 DOB of child
+b11 preceding birth interval
+b20 duration of pregnancy
+
+"
+  
+  
 ##### Behavioural
 
 ###### Tobacco
