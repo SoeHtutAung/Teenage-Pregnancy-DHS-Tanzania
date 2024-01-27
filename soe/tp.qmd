@@ -14,11 +14,16 @@ library(survey)
 library(car)
 #install.packages ("forestplot")
 library(forestplot)
+#install.packages("jtools")
+library(jtools)
+#install.packages("MASS")
+library(MASS)
 ```
 
 ## 2. Load data
 
 ```{r load}
+### 26/1 newly saved RData file has all objects
 load("tp.RData") # Given that STATA datasets are already saved inside RData
 ```
 
@@ -28,10 +33,11 @@ load("tp.RData") # Given that STATA datasets are already saved inside RData
 
 ```{r extract_ir}
 ## extract selected variables from IR
-ir_data <- ir %>% select(1:8, # ID and weight
-                      c(v012,v013, # age
+ir_data <- ir %>% dplyr::select(1:8, # ID and weight
+                        c( v012,v013, # age
                         v021,v023, # cluster(psu), strata (region*ur)
                         v024,v025, # place
+                        v104,v105,v175, # migration status
                         v106, v190, v731, # edu, wealth, employment
                         v201, v213, v245, # pregnancy history for calculation
                         v225, v485a, # wantedness, alcohol,  
@@ -49,7 +55,7 @@ ir_data <- ir %>% select(1:8, # ID and weight
 
 ```{r extract_hr}
 ## extract selected variables from HR
-hr_data <- hr %>% select(1:7,
+hr_data <- hr %>% dplyr::select(1:7,
                          c(hv109_01:hv109_56,# highest education attained in the HH
                            hv005, hv021,hv023, # weight, cluster(psu), strata (region*ur)
                            hv012, # total number of HH members
@@ -160,7 +166,7 @@ hr_data %>% group_by(edu) %>% summarise(n = n()) # check grouping
 ## 5. Join datasets
 
 ```{r join}
-data <- left_join(ir_data, select(hr_data, hv001, hv002, hv005, hv021, hv023, hv012, hv219, edu), 
+data <- left_join(ir_data, dplyr::select(hr_data, hv001, hv002, hv005, hv021, hv023, hv012, hv219, edu), 
                        by = c("v001" = "hv001", "v002" = "hv002")) # join by cluster and household numbers
 ```
 
@@ -256,24 +262,24 @@ Sample code to correct and round up the numbers in svytables, but I didn't use i
 
 ```{r sd}
 ### age
-svyby(formula = ~v012, by = ~v025, design = dhs, FUN = svymean, vartype=c("ci"))
+svyby(formula = ~v012, by = ~v025 + teen_preg, design = dhs, FUN = svymean, vartype=c("ci"))
 svyttest(v012 ~ v025, design = dhs) # t-test for pvalue
 
 ### education
-svytable(~edu_gp + v025, design = dhs)
+svytable(~edu_gp + v025 + teen_preg, design = dhs)
 svychisq(~edu_gp + v025, design = dhs, statistics = "design")
 
 ### current marital status
-svytable(~marital + v025, design = dhs)
+svytable(~marital + v025 + teen_preg, design = dhs)
 svychisq(~marital + v025, design = dhs, statistics = "design")
 
 ### age at first marriage/union
-svyby(formula = ~v511, by = ~v025, design = dhs, FUN = svymean, vartype=c("ci"),
+svyby(formula = ~v511, by = ~v025 + teen_preg, design = dhs, FUN = svymean, vartype=c("ci"),
       na.rm = TRUE) # exlude NA - 2,576 did not respond/never been in a union
 svyttest(v511 ~ v025, design = dhs)
 
 ### age at first sex
-svyby(formula = ~v531, by = ~v025, design = dhs, FUN = svymean, vartype=c("ci"),
+svyby(formula = ~v531, by = ~v025 + teen_preg, design = dhs, FUN = svymean, vartype=c("ci"),
       na.rm = TRUE) # exlude NA - 2,576 did not respond/never been in a union
 svyttest(v531 ~ v025, design = dhs)
 ```
@@ -282,12 +288,12 @@ svyttest(v531 ~ v025, design = dhs)
 
 ```{r partner}
 ### partner age
-svyby(formula = ~v730, by = ~v025, design = dhs, FUN = svymean, vartype=c("ci"),
+svyby(formula = ~v730, by = ~v025 + teen_preg, design = dhs, FUN = svymean, vartype=c("ci"),
       na.rm = TRUE) # exlude NA - 2,576 did not respond/never been in a union
 svyttest(v730 ~ v025, design = dhs)
 
 ### partner education status
-svytable(~v701 + v025, design = dhs)
+svytable(~v701 + v025 + teen_preg, design = dhs)
 svychisq(~v701 + v025, design = dhs, statistics = "design")
 ```
 
@@ -295,11 +301,11 @@ svychisq(~v701 + v025, design = dhs, statistics = "design")
 
 ```{r sd_household}
 ### HH wealth index
-svytable(~v190 + v025, design = dhs)
+svytable(~v190 + v025 + teen_preg, design = dhs)
 svychisq(~v190 + v025, design = dhs, statistics = "design")
 
 ### employment
-svytable(~employ_current + v025, design = dhs)
+svytable(~employ_current + v025 + teen_preg, design = dhs)
 svychisq(~employ_current + v025, design = dhs, statistics = "design")
 ```
 
@@ -311,19 +317,19 @@ svytable(~v225 + v025, design = dhs)
 svychisq(~v225 + v025, design = dhs, statistics = "design")
 
 ### knoweldge on contraceptive methods
-svytable(~contra_know_any + v025, design = dhs)
+svytable(~contra_know_any + v025 + teen_preg, design = dhs)
 svychisq(~contra_know_any + v025, design = dhs, statistics = "design")
 
 ### current contraceptive use
-svytable(~contra_current + v025, design = dhs)
+svytable(~contra_current + v025 + teen_preg, design = dhs)
 svychisq(~contra_current + v025, design = dhs, statistics = "design")
 
 ### intention to use contraception in the future
-svytable(~contra_future + v025, design = dhs)
+svytable(~contra_future + v025 + teen_preg, design = dhs)
 svychisq(~contra_future + v025, design = dhs, statistics = "design")
 
 ### access to information about family planning
-svytable(~fp_info + v025, design = dhs)
+svytable(~fp_info + v025 + teen_preg, design = dhs)
 svychisq(~fp_info + v025, design = dhs, statistics = "design")
 ```
 
@@ -331,19 +337,19 @@ svychisq(~fp_info + v025, design = dhs, statistics = "design")
 
 ```{r problemaccess}
 ### problem with access to health services - permission to go
-svytable(~v467b + v025, design = dhs)
+svytable(~v467b + v025 + teen_preg, design = dhs)
 svychisq(~v467b + v025, design = dhs, statistics = "design")
 
 ### problem with access to health services - money needed
-svytable(~v467c + v025, design = dhs)
+svytable(~v467c + v025 + teen_preg, design = dhs)
 svychisq(~v467c + v025, design = dhs, statistics = "design")
 
 ### problem with access to health services - distance
-svytable(~v467d + v025, design = dhs)
+svytable(~v467d + v025 + teen_preg, design = dhs)
 svychisq(~v467d + v025, design = dhs, statistics = "design")
 
 ### problem with access to health services - not want to go alone
-svytable(~v467f + v025, design = dhs)
+svytable(~v467f + v025 + teen_preg, design = dhs)
 svychisq(~v467f + v025, design = dhs, statistics = "design")
 ```
 
@@ -351,16 +357,22 @@ svychisq(~v467f + v025, design = dhs, statistics = "design")
 
 ```{r hhcharac}
 ### household size
-svyby(formula = ~hv012, by = ~v025, design = dhs, FUN = svymean, vartype=c("ci"))
+svyby(formula = ~hv012, by = ~v025 + teen_preg, design = dhs, FUN = svymean, vartype=c("ci"))
 svyttest(hv012 ~ v025, design = dhs)
 
 ### highest household education attainment
-svytable(~edu + v025, design = dhs)
+svytable(~edu + v025 + teen_preg, design = dhs)
 svychisq(~edu + v025, design = dhs, statistics = "design")
 
 ### sex of household head
-svytable(~hv219 + v025, design = dhs)
+svytable(~hv219 + v025 + teen_preg, design = dhs)
 svychisq(~hv219 + v025, design = dhs, statistics = "design")
+```
+
+### 8.7 Migration
+
+```{r migration}
+
 ```
 
 ## 9. Prepare dataset for regression analysis
@@ -452,8 +464,8 @@ table (teendata$edu, teendata$v025, useNA = "always") # 48 NAs (23 - Urban; 25 -
 ### 9.2 Subset final dataset, so that can omit NAs for regression
 
 ```{r finalsubset}
-# NOT DONE YET
-finaldata <- teendata %>% select (c(
+# final subset for models
+finaldata <- teendata %>% dplyr::select (c(
   v005, v021, v023, # for design
   teen_preg, # outcome 
   v025, # exposure
@@ -738,7 +750,7 @@ Remove outliers, log transformation and taking out not significant variables: NO
 
 ```{r modelfit}
 # check 10 outliers *** only after generating model ***
-# plot(modelfit, which = 4, id.n = 20) 
+plot(modelm_5, which = 4, id.n = 20) 
 # remove outliers
 fitdata <- finaldata [- c(70,178,445,509,721,769,904,1216,1650,
 1686,1721,1783,1787,1823,1839,1856,2008,2065,2066),]
@@ -765,7 +777,7 @@ plot(modelfit)
 # testing summ package for summary and forest plot
 ## summarizing, can check colinearlity together
 summ(modelfit, vifs = TRUE) # lowest AIC so far AIC = 1500.12 
-summ(modelm_5, vifs = TRUE)
+summ(modelm_5, vifs = TRUE) # AIC 1692.89
 
 ## plotting
 plot_summs(modelfit) # only one model
@@ -806,31 +818,14 @@ summ(modelmarry, vifs = TRUE)
 plot_summs(modelmarry) # only one model
 ```
 
-## 11. Plots
+Using stepAIC as Tutor suggested
 
-### 11.1 Forest plot (can use summ of jtools package)
+```{r stepAIC}
+# apply stepwise regression (forward) for full model (modelm_5)
+stepfull <- stepAIC(modelm_5, direction = "forward")
+stepfull$anova # no improvement at AIC 1721.479 (different from summ function)
 
-```{r forest_model5}
-# preapare a dataframe from model
-## Extract coefficients and confidence intervals
-coefs <- coef(modelm_5)
-ci <- confint(modelm_5)
-
-# Create a data frame for the forest plot
-forest_data <- data.frame(
-  variables = rownames(ci),
-  mean = coefs,
-  lower = ci[, 1],
-  upper = ci[, 2])
-
-# plot # NOT DONE YET
-forestplot(forest_data,
-           col = fpColors(box = "black",
-                          lines = "black",
-                          zero = "black"),
-           boxsize = 0.5,
-           xticks = c(-2, -1, 0, 1, 2),
-           xlab = "Odds Ratio (log scale)",
-           zero = 1,
-           main = "Forest Plot Model - 5")
+# apply stepwise regression (forward) for fitted model (modelfit)
+stepfit <- stepAIC(modelfit, direction = "forward")
+stepfit$anova # no improvement at AIC 1519.622 (different from summ function)
 ```
