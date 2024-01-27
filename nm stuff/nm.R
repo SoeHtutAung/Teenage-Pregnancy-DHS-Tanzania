@@ -345,4 +345,16 @@ svyboxplot(v201 ~ urban_rural, survived,
 svyhist(~v201, NM)
 svyhist(~v201, survived)
 
-##v245 pregancy losses
+##v245 pregnancy losses
+pl_quantiles_ur_nm <- svyby(~v245, ~urban_rural + neo_mort, design = all_weighted, 
+                            svyquantile, c(0, 0.25, 0.5, 0.75, 1), ci = TRUE)
+##use subsets to make boxplot of ages 
+svyboxplot(v245 ~ urban_rural, NM,
+           main="No. of pregancies lost for those who had a neonatal mortality by urban and rural areas", ylab = "Pregancies")
+svyboxplot(v245 ~ urban_rural, survived,
+           main="No. of pregancies lost for those without a neonatal mortality by urban and rural areas", ylab = "Pregnanies")
+
+##subsets for hist
+svyhist(~v245, NM)
+svyhist(~v245, survived)
+
