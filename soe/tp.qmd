@@ -37,7 +37,7 @@ ir_data <- ir %>% dplyr::select(1:8, # ID and weight
                         c( v012,v013, # age
                         v021,v023, # cluster(psu), strata (region*ur)
                         v024,v025, # place
-                        v104,v105,v175, # migration status
+                        v102, v104,v105,v175, # migration status
                         v106, v190, v731, # edu, wealth, employment
                         v201, v213, v245, # pregnancy history for calculation
                         v225, v485a, # wantedness, alcohol,  
@@ -133,11 +133,14 @@ ir_data <- ir_data %>%
   mutate(v531 = ifelse(v531 %in% c(0, 97, 98), NA, v531))
 summary(ir_data$v531) # check range
 
+### age of partner recode to recode 98 to na
+ir_data <- ir_data %>% 
+  mutate(v730 = ifelse(v730 %in% c(98), NA, v730)) # 10 with more than 90 but included
+
 ### partner education recode 8 to na
 ir_data <- ir_data %>% 
-  mutate(v701 = ifelse(v701 == 8, NA, v701))
+  mutate(v701 = ifelse(v701 == 8, NA, ifelse (v701 %in% c(2,3), 2, v701)))
 ir_data %>% group_by(v701) %>% summarize (n = n()) # check range
-
 
 ### access to informaiton about family planning - covariate 1 = Yes, 0 = No
 ir_data <- ir_data %>% mutate(
@@ -145,6 +148,30 @@ ir_data <- ir_data %>% mutate(
                      v384e == 1 | v384f == 1 | v384g == 1 | v384h == 1, 1, 0))
 ir_data %>% group_by(fp_info) %>% summarise(n = n()) # check grouping
 # alternative: data %>% group_by(v384a,v384b,v384c,v384d,v384e,v384f,v384g,v384h) %>% summarize (count = n())
+
+### Create varaible for marital and sex status
+ir_data <- ir_data %>%
+  mutate(premaritalsex = factor(
+      case_when(is.na(v531) | is.na(v511) ~ 2, v531 < v511 ~ 1, TRUE ~ 0),
+      levels = c(0, 1, 2),
+      labels = c("No", "Yes", "Extraunion sex")))
+ir_data %>% filter(teen_preg == 1) %>% 
+  group_by(premaritalsex) %>% summarize(n()) # check numbers
+
+## migration within previous 5 year
+ir_data <- ir_data %>% mutate(recent_migrate = ifelse(v104 < 5,1,0)) 
+ir_data %>% group_by(recent_migrate) %>% summarize (n()) # check numbers
+
+## type of migration (can analyse only when filter for recently migrated***)
+ir_data <- ir_data %>% mutate(type_migrate = case_when(
+  v102 == 1 & v105 %in% c(0, 1, 2) ~ 1,
+  v102 == 1 & v105 == 3 ~ 2,
+  v102 == 2 & v105 %in% c(0, 1, 2) ~ 3,
+  v102 == 2 & v105 == 3 ~ 4,
+    TRUE ~ NA_integer_
+)) 
+ir_data %>% filter(recent_migrate ==1) %>%
+  group_by(type_migrate) %>% summarize (n()) # check numbers
 ```
 
 ### 4.2 Recode HR file
@@ -210,9 +237,7 @@ samplesize_region <- cbind(sumtotal_region,sumteen_region[,2:3]) # create datafr
 print(samplesize_region) # print table
 
 ### Sample size for 15-19 who ever had pregnant
-tp_table <- svytable(~teen_preg + v025, design = dhs)
-tp_table <- round(tp_table / 1e6,0)
-print(tp_table)
+round(svytable(~teen_preg + v025, design = dhs)/1e6,0)
 ```
 
 ### 7.2 Teenage pregnancy rate
@@ -221,7 +246,6 @@ print(tp_table)
 ### teenage pregnancy rate in urban and rural
 tpr_ur_raw <- svyby(~(teen_preg == 1), ~v025, dhs, svymean, vartype=c("ci"))
 tpr_ur <- tpr_ur_raw [,c(1,3,5,7)] # filter for proportion and CI
-print(tpr_ur*1000)
 
 ### teenage pregnancy rate in regions
 tpr_region_raw <- svyby(~(teen_preg == 1), ~v024, dhs, svymean, vartype=c("se","ci"))
@@ -239,12 +263,12 @@ tpr_strata <- tpr_strata %>% mutate (tpr = tpr_strata[,3]*100)
 ### 7.3 Outcome of teenage pregnancy
 
 ```{r teenpregoutcome}
-# pregnancy loss - 183 never had a live birth
-round(svytable(~teen_preg + birth_gp + v025, design = dhs, na.action = na.pass)/1e6,0)
+# Live birth - 183 never had a live birth
+svytable(~teen_preg + birth_gp + v025, design = dhs, na.action = na.pass)
 svychisq(~birth_gp + v025, design = dhs, statistics = "design") # chisq for birth_gpvsv025 means number of livebirths against urban/rural
 
 # pregnancy loss - 618 never had a pregnancy loss
-round(svytable(~teen_preg + loss_gp + v025, design = dhs, na.action = na.pass)/1e6,0)
+svytable(~teen_preg + loss_gp + v025, design = dhs, na.action = na.pass)
 svychisq(~loss_gp + v025, design = dhs, statistics = "design") # chisq for loss_gpvsv025 means pregnancy loss against urban/rural
 ```
 
@@ -331,6 +355,9 @@ svychisq(~contra_future + v025, design = dhs, statistics = "design")
 ### access to information about family planning
 svytable(~fp_info + v025 + teen_preg, design = dhs)
 svychisq(~fp_info + v025, design = dhs, statistics = "design")
+
+### pre or intra or extra marital sex (for teenage pregnancies only)
+svytable(~premaritalsex + v025 + teen_preg, design = dhs)
 ```
 
 ### 8.5 Problem with access to health services
@@ -372,7 +399,11 @@ svychisq(~hv219 + v025, design = dhs, statistics = "design")
 ### 8.7 Migration
 
 ```{r migration}
+## recent migration
+svytable(~recent_migrate + v025 + teen_preg, design = dhs)
 
+## type of migration (*** for recently migrated only ***)
+svytable(~type_migrate + v025 + teen_preg + recent_migrate, design = dhs)
 ```
 
 ## 9. Prepare dataset for regression analysis
@@ -475,7 +506,9 @@ finaldata <- teendata %>% dplyr::select (c(
   contra_know_any, fp_info, # health behaviour - knowledge contraceptive, heard about FP messages
   v467b,v467c,v467d,v467f, # problem access to services - permission, money, distance, alone
   hv012, hv219, edu, # hh characteristics - HH size, sex of hh head, highest edu in hh, 
-  v701, v730, v531, v511, contra_current # for univarite - partner education, partner age, age at first sex, age at first marriage, contraceptive use
+  v701, v730, v531, v511, contra_current, # for univarite - partner education, partner age, age at first sex, age at first marriage, contraceptive use
+  premaritalsex, # sex premarital, marital or extramarital
+  recent_migrate, type_migrate # migration status
 ))
 
 # relevel 4 problem to access variables
@@ -531,6 +564,13 @@ model_marital <- svyglm(teen_preg ~ factor(marital),
 print (exp (coef(model_marital)))
 print (exp (confint(model_marital)))
 print (summary(model_marital)$coefficients[,"Pr(>|t|)"])
+
+# recent_migrate: Migration withing previous 5 years
+model_migrate <- svyglm(teen_preg ~ factor(recent_migrate),
+                    design = dhsfinal, family = binomial(), na.action = na.exclude)
+print (exp (coef(model_migrate)))
+print (exp (confint(model_migrate)))
+print (summary(model_migrate)$coefficients[,"Pr(>|t|)"])
 
 # v190: HH wealth index
 model_v190 <- svyglm(teen_preg ~ factor(v190),
@@ -607,46 +647,53 @@ Couldn't calculate p-value for following bivariate models
 
 ```{r bivariate_need na.omit data}
 # edu: Highest education attainment in a HH
-model_edu <- svyglm(teen_preg ~ factor(edu),
+model_hhedu <- svyglm(teen_preg ~ factor(edu),
                     design = dhsfinal, family = binomial(), na.action = na.exclude)
-print (exp (coef(model_edu)))
-print (exp (confint(model_edu)))
-#print (summary(model_edu)$coefficients[2,"Pr(>|t|)"]) # Issue here
+print (exp (coef(model_hhedu)))
+print (exp (confint(model_hhedu)))
+coef_se <- sqrt(diag(vcov(model_hhedu))) 
+2 * (1 - pnorm(abs(coef(model_hhedu)[2:6] / coef_se[2])))
+# print (summary(model_hhedu)$coefficients[2:5,"Pr(>|t|)"])
 
 # v730: age
 model_v730<- svyglm(teen_preg ~ v730,
                     design = dhsfinal, family = binomial(), na.action = na.exclude)
 print (exp (coef(model_v730)[2]))
 print (exp (confint(model_v730)[2,]))
-#print (summary(model_v730)$coefficients[2,"Pr(>|t|)"]) # issue here
+coef_se <- sqrt(diag(vcov(model_v730))) # get se
+2 * (1 - pnorm(abs(coef(model_v730)[2] / coef_se[2]))) # calculate p-value based on the z-statistic.
 
 # v701: Partners education
 model_v701<- svyglm(teen_preg ~ factor(v701),
                     design = dhsfinal, family = binomial(), na.action = na.exclude)
 print (exp (coef(model_v701)))
 print (exp (confint(model_v701)))
-# print (summary(model_v730)$coefficients[2,"Pr(>|t|)"]) # issue here
+coef_se <- sqrt(diag(vcov(model_hhedu))) 
+2 * (1 - pnorm(abs(coef(model_hhedu)[2:3] / coef_se[2]))) # pvalue from se
 
 # v531: Age at first sex
 model_v531 <- svyglm(teen_preg ~ v531,
                     design = dhsfinal, family = binomial(), na.action = na.exclude)
 print (exp (coef(model_v531)[2]))
 print (exp (confint(model_v531)[2, ]))
-# print (summary(model_v531)$coefficients[2,"Pr(>|t|)"]) # issue here
+coef_se <- sqrt(diag(vcov(model_v531))) # get se
+2 * (1 - pnorm(abs(coef(model_v531)[2] / coef_se[2]))) # calculate p-value based on the z-statistic.
 
 # v511: Age at first marriage/union
 model_v511 <- svyglm(teen_preg ~ v511,
                     design = dhsfinal, family = binomial(), na.action = na.exclude)
 print (exp (coef(model_v511)[2]))
 print (exp (confint(model_v511)[2, ]))
-# print (summary(model_v511)$coefficients[2,"Pr(>|t|)"]) # issue here
+coef_se <- sqrt(diag(vcov(model_v511))) # get se
+2 * (1 - pnorm(abs(coef(model_v511)[2] / coef_se[2]))) # calculate p-value based on the z-statistic.
 
 # contra_current: Current contraceptive use
 model_contra_current <- svyglm(teen_preg ~ factor(contra_current),
                     design = dhsfinal, family = binomial(), na.action = na.exclude)
 print (exp (coef(model_contra_current)[2]))
 print (exp (confint(model_contra_current)[2, ]))
-#print (summary(model_contra_current)$coefficients[2,"Pr(>|t|)"]) # issue here
+coef_se <- sqrt(diag(vcov(model_contra_current))) 
+2 * (1 - pnorm(abs(coef(model_contra_current)[2] / coef_se[2]))) # pavlue from se
 ```
 
 ### 10.2 Multiple variable logistic regression

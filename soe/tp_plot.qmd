@@ -7,15 +7,17 @@ editor: visual
 ```{r setup}
 library(ggplot2)
 library(jtools)
+library(survey)
+library(dplyr)
 ```
 
 ```{r load}
-load("tp.RData") # Given that all objects are already saved inside RData
+#load("tp.RData") # Given that all objects are already saved inside RData
 ```
 
-## 1. Plots
+## 1. Forest plot
 
-### 1.1 Forest plot for regressions (summ of jtools package)
+### 1.1 Regressions (summ of jtools package)
 
 ```{r forestplot}
 ## plotting
@@ -23,8 +25,320 @@ plot_summs(modelfit) # only one model
 plot_summs(fitted = modelfit, full = modelm_5) # compare full vs fitted
 ```
 
-### 1.2 Descriptive
+## 2. Simple plots - ggplot2
 
-```{r plots}
+Plan for plots
 
+```{r planforplot}
+# Step 1 > make table object using survey package
+# Step 2 > use ggplot2 for plotting
+```
+
+```{r plot_summary}
+# TO CHANGE T
+round(svytable(~teen_preg + v025, design = dhs), 0) %>%
+  as.data.frame() %>%
+  group_by(v025) %>%
+  mutate(n = sum(Freq), tpr = Freq / n) %>%
+  ungroup() %>%
+  ggplot(aes(x = v025, y = tpr, fill = factor(teen_preg))) +
+  geom_col()
+
+```
+
+### 2.1 Teenage pregnancy outcomes
+
+```{r plot_tpoutcome}
+# teenage pregnancy outcome - live birth
+round((svytable(~teen_preg + birth_gp + v025, 
+                design = dhs, na.action = na.pass)/1e6),0) %>%
+  as.data.frame() %>% 
+  filter (teen_preg == 1) %>%
+  ggplot(aes(x = v025, y = Freq, fill = birth_gp)) +
+  geom_bar(position = "stack", stat = "identity") +
+  theme_minimal()
+
+# teenage pregnancy outcome - pregnancy loss
+round ((svytable(~teen_preg + loss_gp + v025, 
+                design = dhs, na.action = na.pass)/1e6),0) %>%
+  as.data.frame() %>% 
+  filter (teen_preg == 1) %>%
+  ggplot(aes(x = v025, y = Freq, fill = loss_gp)) +
+  geom_bar(position = "stack", stat = "identity") +
+  theme_minimal()
+```
+
+### 2.2 Socio demographic
+
+```{r plot_sd}
+## age
+svyby(formula = ~v012, by = ~v025 + teen_preg, design = dhs, 
+      FUN = svymean, vartype=c("ci")) %>% as.data.frame() %>%
+  ggplot (aes (x = factor(teen_preg), y = v012)) +
+  geom_boxplot() + facet_wrap(~v025) +
+  geom_errorbar(aes(ymin = ci_l, ymax = ci_u), width = 0.2) +
+  scale_x_discrete(labels = c("0" = "Not", "1" = "Teenage pregnancy")) +
+  ylim (15,19)
+
+## education
+round((svytable(~edu_gp + v025 + teen_preg, design = dhs)/1e6),0) %>%
+  as.data.frame() %>% 
+  ggplot(aes(x = teen_preg, y = Freq, fill = edu_gp)) +
+  geom_bar(position = "fill", stat = "identity") +
+  facet_wrap(~v025) +
+  scale_x_discrete(labels = c("0" = "Not", "1" = "Teenage pregnancy")) +
+  theme_minimal()
+
+## marital status
+round((svytable(~marital + v025 + teen_preg, design = dhs)/1e6),0) %>%
+  as.data.frame() %>% 
+  ggplot(aes(x = teen_preg, y = Freq, fill = marital)) +
+  geom_bar(position = "fill", stat = "identity") +
+  facet_wrap(~v025) +
+  scale_x_discrete(labels = c("0" = "Not", "1" = "Teenage pregnancy")) +
+  theme_minimal()
+
+## age at first marriage or union
+svyby(formula = ~v511, by = ~v025 + teen_preg, design = dhs, 
+      FUN = svymean, vartype=c("ci"),na.rm = TRUE) %>% as.data.frame() %>%
+  filter (!is.na(v511)) %>%
+  ggplot (aes (x = factor(teen_preg), y = v511)) +
+  geom_boxplot() + facet_wrap(~v025) +
+  geom_errorbar(aes(ymin = ci_l, ymax = ci_u), width = 0.2) +
+  scale_x_discrete(labels = c("0" = "Not", "1" = "Teenage pregnancy")) +
+  ylim (15,19)
+
+## age at first sex
+svyby(formula = ~v531, by = ~v025 + teen_preg, design = dhs, 
+      FUN = svymean, vartype=c("ci"),na.rm = TRUE) %>% as.data.frame() %>%
+  filter (!is.na(v531)) %>%
+  ggplot (aes (x = factor(teen_preg), y = v531)) +
+  geom_boxplot() + facet_wrap(~v025) +
+  geom_errorbar(aes(ymin = ci_l, ymax = ci_u), width = 0.2) +
+  scale_x_discrete(labels = c("0" = "Not", "1" = "Teenage pregnancy")) +
+  ylim (15,19)
+```
+
+### 2.3 Partner characteristics
+
+```{r plot_partner}
+## age of partner
+svyby(formula = ~v730, by = ~v025 + teen_preg, design = dhs,
+      FUN = svymean, vartype=c("ci"),na.rm = TRUE) %>% as.data.frame() %>%
+  filter (!is.na(v730)) %>%
+  ggplot (aes (x = factor(teen_preg), y = v730)) +
+  geom_boxplot() + facet_wrap(~v025) +
+  geom_errorbar(aes(ymin = ci_l, ymax = ci_u), width = 0.2) +
+  scale_x_discrete(labels = c("0" = "Not", "1" = "Teenage pregnancy")) +
+  ylim (15,49)
+
+## education of partner
+round((svytable(~v701 + v025 + teen_preg, design = dhs)/1e6),0) %>%
+  as.data.frame() %>% 
+  ggplot(aes(x = teen_preg, y = Freq, fill = v701)) +
+  geom_bar(position = "fill", stat = "identity") +
+  facet_wrap(~v025) +
+  scale_x_discrete(labels = c("0" = "Not", "1" = "Teenage pregnancy")) +
+  theme_minimal()
+```
+
+### 2.4 Economic status
+
+```{r plot_economic}
+## wealth index
+round((svytable(~v190 + v025 + teen_preg, design = dhs)/1e6),0) %>%
+  as.data.frame() %>% 
+  ggplot(aes(x = teen_preg, y = Freq, fill = v190)) +
+  geom_bar(position = "fill", stat = "identity") +
+  facet_wrap(~v025) +
+  scale_x_discrete(labels = c("0" = "Not", "1" = "Teenage pregnancy")) +
+  theme_minimal()
+
+## employment
+round((svytable(~employ_current + v025 + teen_preg, design = dhs)/1e6),0) %>%
+  as.data.frame() %>% 
+  ggplot(aes(x = teen_preg, y = Freq, fill = employ_current)) +
+  geom_bar(position = "fill", stat = "identity") +
+  facet_wrap(~v025) +
+  scale_x_discrete(labels = c("0" = "Not", "1" = "Teenage pregnancy")) +
+  theme_minimal()
+```
+
+### 2.5 Health behaviour
+
+For health behavior related variables, it is more simple and clear to compare only urban vs rural, rather than dis-aggregating teenage pregnancy status.
+
+```{r plot_hbehave}
+## knoweldge on contraceptive methods *** includes teenage pregnancy
+round((svytable(~contra_know_any + v025 + teen_preg, design = dhs)/1e6),0) %>%
+  as.data.frame() %>% 
+  ggplot(aes(x = teen_preg, y = Freq, fill = contra_know_any)) +
+  geom_bar(position = "fill", stat = "identity") +
+  facet_wrap(~v025) +
+  scale_x_discrete(labels = c("0" = "Not", "1" = "Teenage pregnancy")) +
+  theme_minimal()
+
+## current contraceptive use
+round((svytable(~contra_current + v025 + teen_preg, design = dhs)/1e6),0) %>%
+  as.data.frame() %>% 
+  ggplot(aes(x = v025, y = Freq, fill = contra_current)) +
+  geom_bar(position = "fill", stat = "identity") +
+  scale_x_discrete(labels = c("1" = "Urban", "2" = "Rural")) +
+  theme_minimal()
+
+## intention to use contraception in the future
+round((svytable(~contra_future + v025 + teen_preg, design = dhs)/1e6),0) %>%
+  as.data.frame() %>% 
+  ggplot(aes(x = v025, y = Freq, fill = contra_future)) +
+  geom_bar(position = "fill", stat = "identity") +
+  scale_x_discrete(labels = c("1" = "Urban", "2" = "Rural")) +
+  theme_minimal()
+
+## access to information about family planning
+round((svytable(~fp_info + v025 + teen_preg, design = dhs)/1e6),0) %>%
+  as.data.frame() %>% 
+  ggplot(aes(x = v025, y = Freq, fill = fp_info)) +
+  geom_bar(position = "fill", stat = "identity") +
+  scale_x_discrete(labels = c("1" = "Urban", "2" = "Rural")) +
+  theme_minimal()
+
+## pre or intra or extra marital sex (for teenage pregnancies only) *** only for TP
+round((svytable(~premaritalsex + v025 + teen_preg, design = dhs)/1e6),0) %>%
+  as.data.frame() %>% filter (teen_preg ==1) %>%
+  ggplot(aes(x = v025, y = Freq, fill = premaritalsex)) +
+  geom_bar(position = "fill", stat = "identity") +
+  scale_x_discrete(labels = c("1" = "Urban", "2" = "Rural")) +
+  theme_minimal()
+```
+
+### 2.6 Access to services
+
+For health access related variables, it is more simple and clear to compare only urban vs rural, rather than disaggregating teenage pregnancy status. In statcompiler, we can produce map to visualize the significant variables (such as distance) region-wise \> then compare with TPR/disparities.
+
+```{r plot_access}
+## problem with access to health services - permission to go
+round((svytable(~v467b + v025 + teen_preg, design = dhs)/1e6),0) %>%
+  as.data.frame() %>% filter (teen_preg ==1) %>%
+  ggplot(aes(x = v025, y = Freq, fill = v467b)) +
+  geom_bar(position = "fill", stat = "identity") +
+  scale_x_discrete(labels = c("1" = "Urban", "2" = "Rural")) +
+  scale_fill_manual(
+    values = c("1" = "orange", "2" = "tan"),
+    labels = c("1" = "Big problem", "2" = "Not a problem"),  # Custom legend labels
+    name = "Problem in getting permission") +  # Custom legend title
+  theme_minimal()
+
+## problem with access to health services - money needed
+round((svytable(~v467c + v025 + teen_preg, design = dhs)/1e6),0) %>%
+  as.data.frame() %>% filter (teen_preg ==1) %>%
+  ggplot(aes(x = v025, y = Freq, fill = v467c)) +
+  geom_bar(position = "fill", stat = "identity") +
+  scale_x_discrete(labels = c("1" = "Urban", "2" = "Rural")) +
+  scale_fill_manual(
+    values = c("1" = "orange", "2" = "tan"),
+    labels = c("1" = "Big problem", "2" = "Not a problem"),  # Custom legend labels
+    name = "Problem in money needed") +  # Custom legend title
+  theme_minimal()
+
+## problem with access to health services - distance
+round((svytable(~v467d + v025 + teen_preg, design = dhs)/1e6),0) %>%
+  as.data.frame() %>% filter (teen_preg ==1) %>%
+  ggplot(aes(x = v025, y = Freq, fill = v467d)) +
+  geom_bar(position = "fill", stat = "identity") +
+  scale_x_discrete(labels = c("1" = "Urban", "2" = "Rural")) +
+  scale_fill_manual(
+    values = c("1" = "orange", "2" = "tan"),
+    labels = c("1" = "Big problem", "2" = "Not a problem"),  # Custom legend labels
+    name = "Problem in distance") +  # Custom legend title
+  theme_minimal()
+
+## problem with access to health services - not want to go alone
+round((svytable(~v467f + v025 + teen_preg, design = dhs)/1e6),0) %>%
+  as.data.frame() %>% filter (teen_preg ==1) %>%
+  ggplot(aes(x = v025, y = Freq, fill = v467f)) +
+  geom_bar(position = "fill", stat = "identity") +
+  scale_x_discrete(labels = c("1" = "Urban", "2" = "Rural")) +
+  scale_fill_manual(
+    values = c("1" = "orange", "2" = "tan"),
+    labels = c("1" = "Big problem", "2" = "Not a problem"),  # Custom legend labels
+    name = "Don't want to go alone") +  # Custom legend title
+  theme_minimal()
+```
+
+### 2.7 Household characteristics
+
+```{r plot_hh}
+## household size
+svyby(formula = ~hv012, by = ~v025 + teen_preg, design = dhs,
+      FUN = svymean, vartype=c("ci")) %>% as.data.frame() %>%
+  ggplot (aes (x = factor(teen_preg), y = hv012)) +
+  geom_boxplot() + facet_wrap(~v025) +
+  geom_errorbar(aes(ymin = ci_l, ymax = ci_u), width = 0.2) +
+  scale_x_discrete(labels = c("0" = "Not", "1" = "Teenage pregnancy")) +
+  ylim (2,10)
+
+## highest household education attainment
+round((svytable(~edu + v025 + teen_preg, design = dhs)/1e6),0) %>%
+  as.data.frame() %>% 
+  ggplot(aes(x = teen_preg, y = Freq, fill = edu)) +
+  geom_bar(position = "fill", stat = "identity") +
+  facet_wrap(~v025) +
+  scale_x_discrete(labels = c("0" = "Not", "1" = "Teenage pregnancy")) +
+  theme_minimal()
+
+## sex of household head
+round((svytable(~hv219 + v025 + teen_preg, design = dhs)/1e6),0) %>%
+  as.data.frame() %>% 
+  ggplot(aes(x = teen_preg, y = Freq, fill = hv219)) +
+  geom_bar(position = "fill", stat = "identity") +
+  facet_wrap(~v025) +
+  scale_x_discrete(labels = c("0" = "Not", "1" = "Teenage pregnancy")) +
+  theme_minimal()
+```
+
+### 2.8 Migration
+
+```{r plot_migration}
+## recent migration
+round((svytable(~recent_migrate + v025 + teen_preg, design = dhs)/1e6),0) %>%
+  as.data.frame() %>% 
+  ggplot(aes(x = teen_preg, y = Freq, fill = recent_migrate)) +
+  geom_bar(position = "fill", stat = "identity") +
+  facet_wrap(~v025) +
+  scale_x_discrete(labels = c("0" = "Not", "1" = "Teenage pregnancy")) +
+  theme_minimal()
+
+## type of migration (*** for recently migrated only ***)
+round((svytable(~type_migrate + v025 + teen_preg + recent_migrate, 
+                design = dhs)/1e6),0) %>%
+  as.data.frame() %>% filter (recent_migrate == 1) %>%
+  ggplot(aes(x = teen_preg, y = Freq, fill = type_migrate)) +
+  geom_bar(position = "fill", stat = "identity") +
+  facet_wrap(~v025) +
+  scale_x_discrete(labels = c("0" = "Not", "1" = "Teenage pregnancy")) +
+  scale_fill_manual(
+    values = c("1" = "blue", "2" = "#009999", "3" = "orange", "4" = "gold"),
+    labels = c("1" = "Urban to urban", "2" = "Rural to urban",
+               "3" = "Urban to rural", "4" = "Rural to rural"),
+    name = "Migration type")
+  theme_minimal()
+```
+
+## 3. Modified plots
+
+```{r modified}
+# education status
+round((svytable(~edu_gp + v025 + teen_preg, design = dhs)/1e6),0) %>%
+  as.data.frame() %>% 
+  ggplot(aes(x = v025, y = Freq, fill = edu_gp)) +
+  geom_bar(position = "fill", stat = "identity") +
+  scale_x_discrete(labels = c("1" = "Urban", "2" = "Rural")) +
+  theme_minimal() +
+  scale_fill_manual(
+    values = c("0" = "tomato1", "1" = "orange2", "2" = "springgreen4"),
+    labels = c("0" = "No education", "1" = "Primary", "2" = "Secondary +"), 
+    name = "Education") +
+  labs(x = "Type of residence", y = "Proportion") +
+  facet_grid(rows = vars(teen_preg),labeller = labeller(
+    teen_preg = c("0" = "No", "1" = "Teenage pregnancy")))
 ```
