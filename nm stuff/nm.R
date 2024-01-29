@@ -85,11 +85,22 @@ births_last3years <- births_last3years %>%
 ##divide bmi v445 by 100 and 9998 as flagged
 births_last3years$v445 <- as.numeric(births_last3years$v445)/100
 
+##catagorise ANC to 0, 1-3, 4-6, 7+ (m14)? can change this!
+births_last3years<- births_last3years %>%
+    mutate(ANC_visits = case_when(
+      m14 == 0 ~ "None",
+      between(m14, 1, 3) ~ "1-3",
+      between(m14, 4, 6) ~ "4-6",
+      m14 >= 7 ~ "7+",
+      TRUE ~ NA_character_  # For any other cases, set to NA
+  ))
+
+
 ##remove uneeded recoded variables
 births_clean <- births_last3years %>% 
   select(-v011, -v008, -b3, -m3a, -m3b, -m3c, -m3d
   , -m3e, -m3f, -m3g, -m3h, -m3i, -m3k, -m3n
-  , - test, -v012, -b6, -b7)
+  , - test, -v012, -b6, -b7, -m14)
 
 ##reorder dataframe
 births_clean <- births_clean %>%
@@ -205,18 +216,18 @@ ggplot(data= as.data.frame(Lit_count_ur_survived) , aes(x=urban_rural, y=Freq, f
 
 
 ##ANC visits - maybe need to do it grouped???? i.e 1-4, 5-10, 10+??
-ANC_count_ur_nm<- svytable(~m14 + urban_rural, NM)
-ANC_count_ur_survived<- svytable(~m14 + urban_rural, survived)
+ANC_count_ur_nm<- svytable(~ANC_visits + urban_rural, NM)
+ANC_count_ur_survived<- svytable(~ANC_visits + urban_rural, survived)
 
 
 as.data.frame(ANC_count_ur_nm)
 as.data.frame(ANC_count_ur_survived)
 
 # Stacked barplot with multiple groups for place of delivery
-ggplot(data= as.data.frame(ANC_count_ur_nm) , aes(x=urban_rural, y=Freq, fill=m14)) +
+ggplot(data= as.data.frame(ANC_count_ur_nm) , aes(x=urban_rural, y=Freq, fill=ANC_visits)) +
   geom_histogram(stat="identity")
 
-ggplot(data= as.data.frame(ANC_count_ur_survived) , aes(x=urban_rural, y=Freq, fill=m14)) +
+ggplot(data= as.data.frame(ANC_count_ur_survived) , aes(x=urban_rural, y=Freq, fill=ANC_visits)) +
   geom_histogram(stat="identity")
 
 
@@ -304,7 +315,6 @@ ggplot(data= as.data.frame(check_count_ur_survived) , aes(x=urban_rural, y=Freq,
   geom_bar(stat="identity")
 
 
-
 ##tiwn? b0
 twin_count_ur_nm<- svytable(~b0 + urban_rural, NM)
 twin_count_ur_survived<- svytable(~b0 + urban_rural, survived)
@@ -357,4 +367,8 @@ svyboxplot(v245 ~ urban_rural, survived,
 ##subsets for hist
 svyhist(~v245, NM)
 svyhist(~v245, survived)
+
+
+
+##wealth v190a
 
