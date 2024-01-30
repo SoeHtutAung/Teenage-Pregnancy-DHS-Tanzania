@@ -10,7 +10,6 @@ library(plyr)
 
 ##added this comment to test push/pull
 ##yay i think it's working now
->>>>>>> 083cd0e (add number two)
 
 ##LOAD DATA
 ##read births data set
