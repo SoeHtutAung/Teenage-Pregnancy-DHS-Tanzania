@@ -7,6 +7,7 @@ library(tidyverse)
 library(plyr)
 
 #testing this - nikki 2
+#testing terminal 
 
 ##added this comment to test push/pull
 ##yay i think it's working now
