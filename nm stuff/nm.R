@@ -6,6 +6,12 @@ library(survey)
 library(tidyverse)
 library(plyr)
 
+#testing this - nikki 2
+
+##added this comment to test push/pull
+##yay i think it's working now
+>>>>>>> 083cd0e (add number two)
+
 ##LOAD DATA
 ##read births data set
 births_BR <- read_dta("TZBR82FL.DTA")
