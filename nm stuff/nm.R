@@ -108,6 +108,7 @@ births_clean <- births_clean %>%
          m13, m14, m15, senior_delivery_attendant, m17, m19, m45, m66, m70, s1125, everything())
 
 ##DATA DICTIONARY
+
 #births_clean data dictionary 
 variable_names_BR_clean <- names(births_clean)
 variable_labels_BR_clean <- sapply(births_clean, function(x) {
