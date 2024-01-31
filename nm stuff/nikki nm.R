@@ -18,7 +18,9 @@ NM_variables <- readLines("/Users/nikkiyu/Downloads/2 Data Challenge/unicef/nm s
 
 ##FILTER DATA BY VARIABLE CODES
 ##use txt file of codes to filter births dataset
-births_subset <- births_BR %>% select(all_of(NM_variables))
+births_subset <- births_BR %>% select(all_of(NM_variables)) %>% mutate(v024 = births_BR$v024)
+
+
 
 ##CREATE NEW VARS
 ##mum_age_pregancy = mum dob - baby dob
@@ -548,5 +550,14 @@ births_clean <- births_clean %>%
     m19 >= 3 ~ ">=3",
     TRUE ~ as.character(NA) # default case to return NA for values that don't fit any of the above conditions
   ))
+
+
+####################### RATES OF NEONATAL MORTALITY ############################
+#Add v024 to "births_clean"
+
+
+svyby(~(neo_death == "Yes"), ~v024 +v025, design, svymean, na.rm = TRUE)
+
+
 
                                       
