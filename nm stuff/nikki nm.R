@@ -200,7 +200,7 @@ ggplot(data= as.data.frame(POD_count_ur_survived) , aes(x=urban_rural, y=Freq, f
   geom_bar(stat="identity")
 
 ##Literacy
-Lit_count_ur_nm<- svytable(~v155 + urban_rural, NM)
+Lit_count_ur_nm <- svytable(~v155 + urban_rural, NM)
 Lit_count_ur_survived<- svytable(~v155 + urban_rural, survived)
 
 
@@ -369,55 +369,76 @@ svyhist(~v245, NM)
 svyhist(~v245, survived)
 
 ######################## NIKKI SECTION - TABLE 1 CONTEXT ######################## 
+#Setting up survey package 
+births_clean$wt <- births_clean$v005/1000000
+
+design <- survey::svydesign(id=~v001, 
+                                  strata =~v023, 
+                                  weights=~wt,
+                                  data= births_clean)
+
 
 #1. Number of pregnancies with anaemia (v457) 
 births_clean$v457
 count(births_clean$v457) 
-67/5619 * 100
-534/5619*100
-574/5619*100
-1657/5619*100
-2787/5619*100
 
 #Split by urban / rural by percentage (v025)
 count(births_clean$v457[births_clean$v025 == 1]) #Urban
 count(births_clean$v457[births_clean$v025 == 2]) #Rural 
 
+round(prop.table(svytable(~ v457 + v025, design = design) ,margin = 2) *100, 2)
+
 
 #2. Number of pregnancies ever told they had HT (s1125)
 births_clean$s1125
 count(births_clean$s1125) 
-5301/5619 * 100
-318/5619*100
 
 count(births_clean$s1125[births_clean$v025 == 1]) #Urban
 count(births_clean$s1125[births_clean$v025 == 2]) #Rural 
+
+round(prop.table(svytable(~ s1125 + v025, design = design) ,margin = 2) *100, 2)
 
 #3. Number of pregnancies with number of ANC visits 
 unique(births_clean$ANC_visits)
 count(births_clean$ANC_visits) 
 
-559/5619*100
-1268/5619*100
-2943/5619*100
-424/5619*100
-424/5619*100
-
 count(births_clean$ANC_visits[births_clean$v025 == 1]) #Urban
 count(births_clean$ANC_visits[births_clean$v025 == 2]) #Rural
+
+round(prop.table(svytable(~ ANC_visits + v025, design = design) ,margin = 2) *100, 2)
 
 #4. Number of pregnancies in pregnancy intervals
 
 #5. Number of pregnancies by mulitplicity of mothers (v201) 
-count(births_clean$v201) 
+births_clean <- births_clean %>%
+  mutate(v201_cat = case_when(
+    v201 == 0 ~ "0",
+    v201 == 1 ~ "1",
+    v201 == 2 ~ "2",
+    v201 == 3 ~ "3",
+    v201 == 4 ~ "4",
+    v201 == 5 ~ "5",
+    v201 == 6 ~ "6",
+    v201 == 7 ~ "7",
+    v201 == 8 ~ "8",
+    v201 == 9 ~ "9",
+    v201 == 10 ~ "10",
+    v201 >= 11 ~ ">=11",
+    TRUE ~ as.character(NA) # default case to return NA for values that don't fit any of the above conditions
+  ))
+
+count(births_clean$v201_cat) 
 
 #By percentage
-count_df <- count(births_clean$v201)
-count_df$percentage <- (count_df$freq / 5619) * 100
+count_df <- count(births_clean$v201_cat)
+count_df$percentage <- round((count_df$freq / 5619) * 100,2)
+print(count_df)
 
 #By urban/rural (n)
 count(births_clean$v201[births_clean$v025 == 1]) #Urban
 count(births_clean$v201[births_clean$v025 == 2]) #Rural
+
+round(prop.table(svytable(~ v201_cat + v025, design = design) ,margin = 2) *100, 2)
 
 #6. Mum age at pregnancy (mum_age_pregnancy)
 count_df <- count(births_clean$mum_age_pregnancy)
@@ -434,17 +455,98 @@ count_df <- count(births_clean$v155)
 count_df$percentage <- (count_df$freq / 5619) * 100
 print(count_df)
 
+
+round(prop.table(svytable(~ v155 + v025, design = design) ,margin = 2) *100, 2)
+
 #By urban/rural (n)
 count(births_clean$v155[births_clean$v025 == 1]) #Urban
 count(births_clean$v155[births_clean$v025 == 2]) #Rural
 
 #8. Number of pregnancy losses (v245)
-count_df <- count(births_clean$v245)
-count_df$percentage <- (count_df$freq / 5619) * 100
+births_clean <- births_clean %>%
+  mutate(v245_cat = case_when(
+    v245 == 0 ~ "0",
+    v245 == 1 ~ "1",
+    v245 == 2 ~ "2",
+    v245 >= 3 ~ ">=3",
+    TRUE ~ as.character(NA) # default case to return NA for values that don't fit any of the above conditions
+  ))
+
+count_df <- count(births_clean$v245_cat)
+count_df$percentage <- round((count_df$freq / 5619) * 100,2)
 print(count_df)
 
 #By urban/rural (n)
-count(births_clean$v155[births_clean$v025 == 1]) #Urban
-count(births_clean$v155[births_clean$v025 == 2]) #Rural
+count(births_clean$v155[births_clean$v245_cat == 1]) #Urban
+count(births_clean$v155[births_clean$v245_cat == 2]) #Rural
 
-#9. Place of delivery for pregnancies 
+round(prop.table(svytable(~ v245_cat + v025, design = design) ,margin = 2) *100, 2)
+
+
+#9. Place of delivery for pregnancies (m15)
+count_df <- count(births_clean$m15)
+count_df$percentage <- (count_df$freq / 5619) * 100
+print(count_df)
+
+round(prop.table(svytable(~ m15 + v025, design = design) ,margin = 2) *100, 2)
+
+#10. Mode of delivery (m17)
+count_df <- count(births_clean$m17)
+count_df$percentage <- round((count_df$freq / 5619) * 100,2)
+print(count_df)
+
+round(prop.table(svytable(~ m17 + v025, design = design) ,margin = 2) *100, 2)
+
+#11. Sex of the baby (b4) 
+count_df <- count(births_clean$b4)
+count_df$percentage <- round((count_df$freq / 5619) * 100,2)
+print(count_df)
+
+round(prop.table(svytable(~ b4 + v025, design = design) ,margin = 2) *100, 2)
+
+#12. Gestation at birth (b20)
+count_df <- count(births_clean$b20)
+count_df$percentage <- round((count_df$freq / 5619) * 100,2)
+print(count_df)
+
+#13. Post natal check (m70)
+count_df <- count(births_clean$m70)
+count_df$percentage <- round((count_df$freq / 5619) * 100,2)
+print(count_df)
+
+round(prop.table(svytable(~ m70 + v025, design = design) ,margin = 2) *100, 2)
+
+#14. Age (mum_age_pregnancy)
+births_clean$mum_age_pregnancy
+summary(births_clean$mum_age_pregnancy)
+count(births_clean$mum_age_pregnancy)
+
+#Categorising the ages
+births_clean <- births_clean %>%
+  mutate(mum_age_pregnancy_cat = case_when(
+    mum_age_pregnancy < 20 ~ "<20",
+    mum_age_pregnancy >= 20 & mum_age_pregnancy < 25 ~ "20-24",
+    mum_age_pregnancy >= 25 & mum_age_pregnancy < 35 ~ "25-34",
+    mum_age_pregnancy >= 35 & mum_age_pregnancy < 45 ~ "35-44",
+    mum_age_pregnancy >= 45 ~ "45-49",
+    TRUE ~ as.character(NA) # default case to return NA for values that don't fit any of the above conditions
+  ))
+
+count_df <- count(births_clean$mum_age_pregnancy_cat)     
+count_df$percentage <- round((count_df$freq / 5619) * 100,2)
+print(count_df)
+
+round(prop.table(svytable(~ mum_age_pregnancy_cat + v025, design = design) ,margin = 2) *100, 2)
+
+#15. Birth weight (m19)
+count(births_clean$m19)
+births_clean <- births_clean %>%
+  mutate(m19_cat = case_when(
+    m19 <= 2500 ~ "<= 2500",
+    m19 >= 4000 ~ "Macrosomia",
+    m19 < 1000 ~ "",
+    m19 >= 3 ~ ">=3",
+    TRUE ~ as.character(NA) # default case to return NA for values that don't fit any of the above conditions
+  ))
+
+                                      
