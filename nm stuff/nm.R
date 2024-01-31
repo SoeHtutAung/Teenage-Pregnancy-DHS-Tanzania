@@ -111,7 +111,7 @@ births_clean <- births_last3years %>%
 ##reorder dataframe
 births_clean <- births_clean %>%
   select(1:7, mum_age_pregnancy, b5, neo_mort, age_at_death_days, b4, b0, b20, b11, b12,
-         m13, m14, m15, senior_delivery_attendant, m17, m19, m45, m66, m70, s1125, everything())
+         m13, ANC_visits, m15, senior_delivery_attendant, m17, m19, m45, m66, m70, s1125, everything())
 
 ##DATA DICTIONARY
 
