@@ -1,5 +1,5 @@
 
-##LOAD LIBRARIES
+####LOAD LIBRARIES
 library(dplyr)
 library(haven)
 library(survey)
@@ -7,7 +7,7 @@ library(tidyverse)
 library(plyr)
 
 
-##LOAD DATA
+#######LOAD DATA
 ##read births data set
 births_BR <- read_dta("TZBR82FL.DTA")
 births_BR <- read_dta("~/Downloads/UNICEF DATA/Births/TZBR82FL.DTA") # for nikki 
@@ -139,10 +139,6 @@ births_clean$wt <- births_clean$v005/1000000
 births_clean <- births_clean %>%
   mutate(urban_rural = factor(v025, levels = c(1, 2), labels = c("Urban", "Rural")))
 
-
-##using survey package
-##create survey design to use in survey package calculations
-## i used v001 for cluster id, but noticed Soe used v021, not sure what the difference is
 
 all_weighted <- survey::svydesign(id=~v001, 
                                   strata =~v023, 
@@ -372,4 +368,83 @@ svyboxplot(v245 ~ urban_rural, survived,
 svyhist(~v245, NM)
 svyhist(~v245, survived)
 
+######################## NIKKI SECTION - TABLE 1 CONTEXT ######################## 
 
+#1. Number of pregnancies with anaemia (v457) 
+births_clean$v457
+count(births_clean$v457) 
+67/5619 * 100
+534/5619*100
+574/5619*100
+1657/5619*100
+2787/5619*100
+
+#Split by urban / rural by percentage (v025)
+count(births_clean$v457[births_clean$v025 == 1]) #Urban
+count(births_clean$v457[births_clean$v025 == 2]) #Rural 
+
+
+#2. Number of pregnancies ever told they had HT (s1125)
+births_clean$s1125
+count(births_clean$s1125) 
+5301/5619 * 100
+318/5619*100
+
+count(births_clean$s1125[births_clean$v025 == 1]) #Urban
+count(births_clean$s1125[births_clean$v025 == 2]) #Rural 
+
+#3. Number of pregnancies with number of ANC visits 
+unique(births_clean$ANC_visits)
+count(births_clean$ANC_visits) 
+
+559/5619*100
+1268/5619*100
+2943/5619*100
+424/5619*100
+424/5619*100
+
+count(births_clean$ANC_visits[births_clean$v025 == 1]) #Urban
+count(births_clean$ANC_visits[births_clean$v025 == 2]) #Rural
+
+#4. Number of pregnancies in pregnancy intervals
+
+#5. Number of pregnancies by mulitplicity of mothers (v201) 
+count(births_clean$v201) 
+
+#By percentage
+count_df <- count(births_clean$v201)
+count_df$percentage <- (count_df$freq / 5619) * 100
+
+#By urban/rural (n)
+count(births_clean$v201[births_clean$v025 == 1]) #Urban
+count(births_clean$v201[births_clean$v025 == 2]) #Rural
+
+#6. Mum age at pregnancy (mum_age_pregnancy)
+count_df <- count(births_clean$mum_age_pregnancy)
+count_df$percentage <- (count_df$freq / 5619) * 100
+count_df$x
+summary(births_clean$mum_age_pregnancy)
+
+#By urban/rural (n)
+count(births_clean$mum_age_pregnancy[births_clean$v025 == 1]) #Urban
+count(births_clean$mum_age_pregnancy[births_clean$v025 == 2]) #Rural
+
+#7. Number by literacy (v155)
+count_df <- count(births_clean$v155)
+count_df$percentage <- (count_df$freq / 5619) * 100
+print(count_df)
+
+#By urban/rural (n)
+count(births_clean$v155[births_clean$v025 == 1]) #Urban
+count(births_clean$v155[births_clean$v025 == 2]) #Rural
+
+#8. Number of pregnancy losses (v245)
+count_df <- count(births_clean$v245)
+count_df$percentage <- (count_df$freq / 5619) * 100
+print(count_df)
+
+#By urban/rural (n)
+count(births_clean$v155[births_clean$v025 == 1]) #Urban
+count(births_clean$v155[births_clean$v025 == 2]) #Rural
+
+#9. Place of delivery for pregnancies 
