@@ -24,7 +24,7 @@ selected_vars <- c(
   "v445", "v463aa", "v485a", "v501"
 )
 
-selected_births <- births_BR %>%
+births_subset <- births_BR %>%
   dplyr::select(all_of(selected_vars)) %>%
   dplyr::mutate(v024 = births_BR$v024)
 
@@ -169,7 +169,7 @@ births_last3years <- births_last3years %>%
 
 ##remove uneeded recoded variables
 births_clean <- births_last3years %>% 
-  select(-v011, -v008, -b3, -m3a, -m3b, -m3c, -m3d
+  dplyr::select(-v011, -v008, -b3, -m3a, -m3b, -m3c, -m3d
          , -m3e, -m3f, -m3g, -m3h, -m3i, -m3k, -m3n
          , - test, -v012, -b6, -b7, -m14)
 
