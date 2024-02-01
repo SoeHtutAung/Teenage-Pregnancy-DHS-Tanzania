@@ -46,8 +46,8 @@ summary(births_last3years)
 
 ##NEW VAR FOR NEONATAL MORTALITY
 births_last3years <- births_last3years %>%
-  mutate(neo_mort = ifelse(is.na(b6) | b6 > 130, "No", "Yes"),
-         age_at_death_days = ifelse(neo_mort == "Yes", b6 %% 100, NA))
+  mutate(neo_mort = ifelse(is.na(b6) | b6 > 130, 0, 1),
+         age_at_death_days = ifelse(neo_mort == 1, b6 %% 100, NA))
 
 ##RECODE DELIVERY ASSISTANT COLUMNS
 ##combine the columns m3a-m3n (assistant at delivery) into one column with factors
