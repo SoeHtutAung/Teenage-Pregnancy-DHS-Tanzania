@@ -176,8 +176,8 @@ setwd("C:/Users/Saund/OneDrive/MSc_HDS_2022/Data Challenge")
 # ## i used v001 for cluster id, but noticed Soe used v021, not sure what the difference is
 # 
 # 
-# design <- survey::svydesign(id=~v001, 
-#                             strata =~v023, 
+# all_weighted <- survey::svydesign(id=~v001, 
+#                             strata =~v023,
 #                             weights=~wt,
 #                             data= births_clean)
 # 
@@ -202,7 +202,7 @@ setwd("C:/Users/Saund/OneDrive/MSc_HDS_2022/Data Challenge")
 # subset
 # NM <- subset(all_weighted,neo_mort == "Yes")
 # survived <- subset(all_weighted,neo_mort == "No")
-# 
+# # 
 # ##AGE 
 # ##quantiles by urban/rural
 # age_quantiles_ur_nm <- svyby(~mum_age_pregnancy, ~ urban_rural + neo_mort, all_weighted, svyquantile, c(0,0.25, 0.5, 0.75,1), ci = TRUE)
@@ -352,13 +352,13 @@ setwd("C:/Users/Saund/OneDrive/MSc_HDS_2022/Data Challenge")
 # 
 # 
 # ##tiwn? b0
-# twin_count_ur_nm<- svytable(~b0 + urban_rural, NM)
-# twin_count_ur_survived<- svytable(~b0 + urban_rural, survived)
-# 
-# 
+# twin_count_ur_nm<- svytable(~b0 + v025, NM)
+# twin_count_ur_survived<- svytable(~b0 + v025, survived)
+# # 
+# table <- proportions(twin_count_ur_nm)
 # # Stacked barplot with multiple groups for place of delivery
-# ggplot(data= as.data.frame(twin_count_ur_nm) , aes(x=urban_rural, y=Freq, fill=b0)) +
-#   geom_bar(stat="identity")
+#ggplot(data= as.data.frame(table) , aes(x=v025, y=Freq, fill=b0)) +
+# geom_bar(stat="identity")
 # 
 # ggplot(data= as.data.frame(twin_count_ur_survived) , aes(x=urban_rural, y=Freq, fill=b0)) +
 #   geom_bar(stat="identity")
@@ -960,3 +960,23 @@ print (exp (coef(model_anc)[2])) %>% round(2)
 print (exp (confint(model_anc)[2, ])) %>% round(2)
 print (summary(model_anc)$coefficients[2,"Pr(>|t|)"]) %>% round(2)
 
+##### model 1 then 2 #######
+##pregancy factors then add the labour factors
+
+modelm_preg <- svyglm(neo_mort ~ factor(v025) + 
+                     as.factor(s1125) + m14 + v201,
+                   design, family = quasibinomial(), na.action = na.exclude)
+
+print (exp (coef(modelm_1)))
+print (exp (confint(modelm_1)))
+print (summary(modelm_1)$coefficients[,"Pr(>|t|)"])
+
+modelm_preg_labour <-  svyglm(neo_mort ~ factor(v025) + 
+                       as.factor(s1125) + m14 + v201 +
+                       factor(m17) + m19 + b20,
+                     design = design, family = quasibinomial(), na.action=na.omit)
+
+
+print (exp (coef(modelm_12)))
+print (exp (confint(modelm_12)))
+print (summary(modelm_12)$coefficients[,"Pr(>|t|)"])
