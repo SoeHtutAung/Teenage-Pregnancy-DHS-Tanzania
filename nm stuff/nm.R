@@ -678,7 +678,7 @@ print(count_df)
 count(births_clean$v201[births_clean$v025 == 1]) #Urban
 count(births_clean$v201[births_clean$v025 == 2]) #Rural
 
-round(prop.table(svytable(~ v201_cat + v025, design = design) ,margin = 2) *100, 2)
+no_pregnancies <- round(prop.table(svytable(~ v201_cat + v025, design = design) ,margin = 2) *100, 2)
 
 #6. Mum age at pregnancy (mum_age_pregnancy)
 count_df <- count(births_clean$mum_age_pregnancy)
@@ -696,7 +696,7 @@ count_df$percentage <- (count_df$freq / 5619) * 100
 print(count_df)
 
 
-round(prop.table(svytable(~ v155 + v025, design = design) ,margin = 2) *100, 2)
+literacy <- round(prop.table(svytable(~ v155 + v025, design = design) ,margin = 2) *100, 2)
 
 #By urban/rural (n)
 count(births_clean$v155[births_clean$v025 == 1]) #Urban
@@ -710,12 +710,11 @@ print(count_df)
 
 #By urban/rural (n)
 
-#######################this doesnt look right - i updated it###########need to check if tables needs to be updated################
+
 count(births_clean$v245_cat[births_clean$v025 == 1]) #Urban
 count(births_clean$v245_cat[births_clean$v025 == 2]) #Rural
 
 
-###v245_cat not added to the design?
 round(prop.table(svytable(~ v245_cat + v025, design = design) ,margin = 2) *100, 2)
 
 
@@ -766,7 +765,7 @@ unique(births_clean$v190)
 count(births_clean$v190)/5619
 count(births_clean$v190[births_clean$v025 == 1]) #Urban
 count(births_clean$v190[births_clean$v025 == 2]) #Rural
-round(prop.table(svytable(~ v190 + v025, design = design) ,margin = 2) *100, 2)
+wealth <- round(prop.table(svytable(~ v190 + v025, design = design) ,margin = 2) *100, 2)
 
 
 #16.marital status v501
@@ -796,7 +795,7 @@ unique(births_clean$senior_delivery_attendant)
 count(births_clean$senior_delivery_attendant)$freq/5619
 count(births_clean$senior_delivery_attendant[births_clean$v025 == 1]) #Urban
 count(births_clean$senior_delivery_attendant[births_clean$v025 == 2]) #Rural
-round(prop.table(svytable(~ senior_delivery_attendant + v025, design = design) ,margin = 2) *100, 2)
+attendant <- round(prop.table(svytable(~ senior_delivery_attendant + v025, design = design) ,margin = 2) *100, 2)
 
 
 #20. preterm b20#
@@ -980,3 +979,23 @@ modelm_preg_labour <-  svyglm(neo_mort ~ factor(v025) +
 print (exp (coef(modelm_12)))
 print (exp (confint(modelm_12)))
 print (summary(modelm_12)$coefficients[,"Pr(>|t|)"])
+
+
+#####Data visualizations - contextual######
+##age hist
+
+##1. Multiple pregnancy (v201_cat)
+ggplot(data= as.data.frame(no_pregnancies) , aes(x=v025, y=Freq, fill=v201_cat)) +
+  geom_bar(stat="identity")
+
+##2. attendant
+ggplot(data= as.data.frame(attendant) , aes(x=v025, y=Freq, fill=senior_delivery_attendant)) +
+  geom_bar(stat="identity")
+
+##3. literacy
+ggplot(data= as.data.frame(literacy) , aes(x=v025, y=Freq, fill=v155)) +
+  geom_bar(stat="identity")
+
+##4. wealth
+ggplot(data= as.data.frame(wealth) , aes(x=v025, y=Freq, fill=v190)) +
+  geom_bar(stat="identity")
