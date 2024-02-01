@@ -577,20 +577,21 @@ print(summary(model_v445)$coefficients[2,"Pr(>|t|)"]) %>% round(2)
 
 ##################### MULTIVARIATE ANALYSIS #####################
 
-#Labour model 
-class(births_clean$neo_mort)
-
-modelm_2 <- svyglm(neo_mort ~ factor(v025) + 
+#labour model 
+modelm_labour <- svyglm(neo_mort ~ factor(v025) + 
                   factor(m17) + m19 + b20,
                   design = design, family = quasibinomial(), na.action = na.omit)
 
-print (exp (coef(modelm_2)))
-print (exp (confint(modelm_2)))
-print (summary(modelm_2)$coefficients[,"Pr(>|t|)"])
+print (exp (coef(modelm_labour)))
+print (exp (confint(modelm_labour)))
+print (summary(modelm_labour)$coefficients[,"Pr(>|t|)"])
 
-#Pregnancy + Labour model 
-modelm_2 <- svyglm(neo_mort ~ factor(v025) + 
+#Labour + Pregnancy model 
+modelm_labour_preg <- svyglm(neo_mort ~ factor(v025) + 
                      factor(m17) + m19 + b20 +  as.factor(s1125) + m14 + v201,
                    design = design, family = quasibinomial(), na.action = na.omit)
 
 
+print (exp (coef(modelm_labour_preg))) %>% round(2)
+print (exp (confint(modelm_labour_preg))) %>% round(2)
+print (summary(modelm_labour_preg)$coefficients[,"Pr(>|t|)"]) %>% round(2)
