@@ -1,0 +1,295 @@
+---
+title: "Untitled"
+format: html
+editor: visual
+---
+
+# Data loading and processing setting survey design 
+
+```{r}
+library(haven)
+NR <- read_dta("~/Desktop/Data_Challenge /Pregnancy and Postnatal Care/TZNR82FL.DTA")
+View(NR)
+library(dplyr)
+
+#load data 
+NR <- NR %>%
+  mutate(
+    p32_stillbirth = ifelse(p32 == 2, 1, 0), 
+    v106_combined = ifelse(v106 == 3, 2, v106),
+    m14_grouped = case_when(
+      m14 == 0 ~ "0",               
+      m14 >= 1 & m14 <= 3 ~ "1-3",      
+      m14 >= 4 & m14 != 98 ~ "4+",     
+      m14 == 98 | is.na(m14) ~ "Don't know",  
+      TRUE ~ as.character(m14)
+    ),
+  m80_combined = case_when(
+      m80 == 1 ~ "1 [most recent live birth]", 
+      m80 == 2 ~ "2 [prior live birth]",
+      m80 %in% c(3, 4) ~ "3 [combined stillbirth]",  
+      m80 == 5 ~ "4 [miscarriage/abortion]"         
+    ),
+    v501_combined = case_when(
+      v501 %in% c(3, 4) ~ 3, 
+      v501 == 5 ~ 4,          
+      TRUE ~ v501
+    )
+  )
+# make it number to work 
+NR$p32_stillbirth <- as.numeric(as.character(NR$p32_stillbirth))
+#set survey design 
+library(survey)
+DHS <- svydesign(
+  id = NR$v021,       
+  strata = NR$v023,    
+  weights = NR$v005/1e6,  
+  data = NR
+)
+library(dplyr)
+count(NR, v106_combined)
+table(NR$v106_combined)
+```
+
+# some draft analysis to understand data 
+
+```{r}
+NR$v025
+
+###proportion of stillbirth 
+svytable(~v025 + p32_stillbirth, design = DHS)
+
+
+# Basic Rates
+prop.table(table(NR$p32_stillbirth, NR$v025))
+
+###make a bar plot here 
+
+
+#adjust for hypertension 
+Model_cof1 <- svyglm(p32_stillbirth ~ v025 *s1125, design = DHS, family = quasibinomial())
+exp(coef(Model_cof1))
+summary(Model_cof1)
+confint_adjusted <- exp(confint(Model_cof1))
+
+
+#adjust for education
+model_cof2 <- svyglm(p32_stillbirth ~ v025 *v106, design = DHS, family = quasibinomial())
+exp(coef(model_cof2))
+summary(model_cof2)
+
+
+#adjust for marital status 
+model_cof3 <- svyglm(p32_stillbirth ~ v025 + factor(v501), design = DHS, family = quasibinomial())
+exp(coef(model_cof3))
+summary(model_cof3)
+
+svytable(~p32_stillbirth + v025 + v501,design = DHS)
+
+#adjust for work status 
+model_cof4 <- svyglm(p32_stillbirth ~ v025 *factor(v732), design = DHS, family = quasibinomial())
+exp(coef(model_cof4))
+summary(model_cof4)
+
+
+
+#adjust for mode of delivery 
+model_cof5 <- svyglm(p32_stillbirth ~ v025 *factor(m17), design = DHS, family = quasibinomial())
+exp(coef(model_cof5))
+summary(model_cof5)
+
+
+#adjusted for ANC visits and care (there is missing data )
+model_cof6 <- svyglm(p32_stillbirth ~ v025 * m14, design = DHS, family = quasibinomial(),na.action = na.exclude)
+exp(coef(model_cof6))
+summary(model_cof6)
+
+#anemia adjusted 
+model_cof7 <- svyglm(p32_stillbirth ~ v025 *v457, design = DHS, family = quasibinomial())
+exp(coef(model_cof7))
+summary(model_cof7)
+
+#wantedness of pregnancy adjusted (there is missing data)
+model_cof8 <- svyglm(p32_stillbirth ~ v025 *v225, design = DHS, family = quasibinomial(),na.action=na.exclude)
+exp(coef(model_cof8))
+summary(model_cof8)
+#wantedness of pregnancy un-adjusted (there is missing data)
+model_cof8_u <- svyglm(p32_stillbirth ~ v225, design = DHS, family = quasibinomial(),na.action=na.exclude)
+exp(coef(model_cof8_u))
+summary(model_cof8_u)
+
+
+# adjust for gestational age 
+model_cof9 <- svyglm(p32_stillbirth ~ v025 * p20, design = DHS, family = quasibinomial())
+exp(coef(model_cof9))
+summary(model_cof9)
+
+
+# adjusted multivariate for sociodemograhic 
+
+count(NR,v012)
+
+# adjust for maternal age ?? or age at pregnancy 
+model_cof19 <- svyglm(p32_stillbirth ~ v025 * v012, design = DHS, family = quasibinomial())
+exp(coef(model_cof9))
+summary(model_cof19)
+# un-adjust for maternal age 
+model_cof19_u <- svyglm(p32_stillbirth ~ v012, design = DHS, family = quasibinomial())
+exp(coef(model_cof19_u))
+summary(model_cof19_u)
+
+v245
+
+##history of stillbirth 3 and 4 (recent and prior)
+count(NR,m80)
+library(haven)
+library(dplyr)
+# Convert m80 to a numeric or factor type
+NR$m80 <- as.numeric(as_factor(NR$m80))
+
+# Now use mutate to create the new column
+NR <- NR %>% 
+  mutate(m80_right = ifelse(m80 == 4, 1, 0))
+
+
+# adjust for history of stillbirth
+model_cof10 <- svyglm(p32_stillbirth ~ v025 * m80, design = DHS, family = quasibinomial())
+exp(coef(model_cof10))
+summary(model_cof10)
+
+NR$m80
+
+
+
+#Adjusted for multiplicity 
+svytable(~p0 + v025 + p32_stillbirth, design = DHS)
+model_cof11 <- svyglm(p32_stillbirth ~ v025 * p0, design = DHS, family = quasibinomial())
+exp(coef(model_cof11))
+summary(model_cof11)
+
+#Adjusted for wealth 
+svytable(~v190 + v025 + p32_stillbirth, design = DHS)
+prop.table(table(NR$v190,NR$v025))
+model_cof12 <- svyglm(p32_stillbirth ~ v025 * factor(v190), design = DHS, family = quasibinomial())
+exp(coef(model_cof12))
+summary(model_cof12)
+
+
+##history of stillbirth 3 and 4 (recent and prior) 1 and 2 are most recent live birth and previous live birth 
+# 5 is miscarriage 
+
+svytable(~p32_stillbirth + v025 + m80, design = DHS)
+count(NR,m80)
+count(NR,m80)
+prop.table(table(NR$m80, NR$v025))
+count(NR,v025)
+
+# correct prop 
+prop.table(svytable(~ p32_stillbirth + v025, design = DHS) ,margin = 2) *100
+
+
+NR$m80
+svytable(~v025 + m80, design = DHS)/100
+###### Ratio #####
+
+prop.table()
+```
+
+```{r}
+#data cleaning 
+
+NR_clean <- NR %>%
+  filter(!is.na(v732) & !is.na(m17) & !is.na(v457))
+
+# Assuming DHS is your survey design object
+DHS_clean <- svydesign(
+  id = NR_clean$v021,       
+  strata = NR_clean$v023,    
+  weights = NR_clean$v005/1e6,  
+  data = NR_clean
+)
+```
+
+### Bivariate analysis 
+
+```{r}
+#Un-udjusted model v025 rural vs.urban
+model_unadjusted <- svyglm(p32_stillbirth ~ factor(v025), design = DHS, family = quasibinomial())
+print (exp (coef(model_unadjusted)[2]))
+print (exp (confint(model_unadjusted)[2, ]))
+print (summary(model_unadjusted)$coefficients[2,"Pr(>|t|)"])
+# un-adjust for hypertension 
+Model_cof1_u <- svyglm(p32_stillbirth ~ factor(s1125), design = DHS, family = quasibinomial())
+prop.table(svytable(~p32_stillbirth + v025 + m80, design = DHS))
+
+print (exp (coef(Model_cof1_u)[2]))
+print (exp (confint(Model_cof1_u)[2, ]))
+print (summary(Model_cof1_u)$coefficients[2,"Pr(>|t|)"])
+#un-adjust for education
+model_cof2_u <- svyglm(p32_stillbirth ~  factor(v106_combined), design = DHS, na.action=na.exclude, family = quasibinomial())
+prop.table(table(NR$p32_stillbirth, NR$v106))
+NR$v106
+print (exp (coef(model_cof2_u)))
+print (exp (confint(model_cof2_u)))
+print (summary(model_cof2_u)$coefficients[,"Pr(>|t|)"])
+count(NR,v106)
+#un-adjust for marital status 
+model_cof3_u <- svyglm(p32_stillbirth ~  factor(v501_combined), design = DHS, family = quasibinomial())
+count(NR,v501)
+print (exp (coef(model_cof3_u)))
+print (exp (confint(model_cof3_u)))
+print (summary(model_cof3_u)$coefficients[,"Pr(>|t|)"])
+
+
+# Un-Adjusted for wealth 
+model_cof12_u <- svyglm(p32_stillbirth ~ factor(v190), design = DHS, family = quasibinomial())
+print (exp (coef(model_cof12_u)))
+print (exp (confint(model_cof12_u)))
+print (summary(model_cof12_u)$coefficients[,"Pr(>|t|)"])
+
+#un-adjust for work status 
+model_cof4_u <- svyglm(p32_stillbirth ~ factor(v732), design = DHS_clean, family = quasibinomial())
+print (exp (coef(model_cof4_u)))
+print (exp (confint(model_cof4_u)))
+print (summary(model_cof4_u)$coefficients[,"Pr(>|t|)"])
+
+
+#un-adjust for mode of delivery 
+model_cof5_u <- svyglm(p32_stillbirth ~ factor(m17), design = DHS_clean, family = quasibinomial())
+print (exp (coef(model_cof5_u)))
+print (exp (confint(model_cof5_u)))
+print (summary(model_cof5_u)$coefficients[,"Pr(>|t|)"])
+
+
+#un-adjusted for ANC visits and care (there is missing data )
+model_cof6_u <- svyglm(p32_stillbirth ~ factor(m14_grouped), design = DHS, family = quasibinomial(), na.action = na.exclude)
+print (exp (coef(model_cof6_u)))
+print (exp (confint(model_cof6_u)))
+print (summary(model_cof6_u)$coefficients[,"Pr(>|t|)"])
+
+#anemia un-adjusted 
+model_cof7_u <- svyglm(p32_stillbirth ~  factor(v457), design = DHS_clean, family = quasibinomial())
+print (exp (coef(model_cof7_u)))
+print (exp (confint(model_cof7_u)))
+print (summary(model_cof7_u)$coefficients[,"Pr(>|t|)"])
+
+
+# un-adjust for gestational age (dont use it )
+model_cof9_u <- svyglm(p32_stillbirth ~ p20, design = DHS, family = quasibinomial())
+exp(coef(model_cof9_u))
+summary(model_cof9_u)
+
+
+# un-adjust for history of stillbirth 
+model_cof10_u <- svyglm(p32_stillbirth ~ factor(m80_combined), design = DHS, family = quasibinomial(), control = glm.control(maxit = 50))
+print(exp(coef(model_cof10_u)))
+print(exp(confint(model_cof10_u)))
+print(summary(model_cof10_u)$coefficients[,"Pr(>|t|)"])
+
+# un-adjusted for multiplicity of pregnancy 
+svytable(~p0 + v025 + p32_stillbirth, design = DHS)
+model_cof11_u <- svyglm(p32_stillbirth ~ factor(p0), design = DHS, family = binomial())
+print (exp (coef(model_cof11_u)))
+print (exp (confint(model_cof11_u)))
+print (summary(model_cof11_u)$coefficients[,"Pr(>|t|)"])
+```
