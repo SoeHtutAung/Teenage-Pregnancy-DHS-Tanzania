@@ -133,6 +133,28 @@ births_last3years<- births_last3years %>%
     TRUE ~ NA_character_  # For any other cases, set to NA
   ))
 
+##sort for the continuos variable for the bivariate analsis as per DHS stats
+births_last3years <- births_last3years %>%
+  mutate(m14 = case_when(
+    m14 %in% c(0, 98, NA) ~ 0,
+    m14 == 1 ~ 1,
+    m14 == 2 ~ 2,
+    m14 == 3 ~ 3,
+    m14 == 4 ~ 4,
+    m14 == 5 ~ 5,
+    m14 == 6 ~ 6,
+    m14 == 7 ~ 7,
+    m14 == 8 ~ 8,
+    m14 == 9 ~ 9,
+    m14 == 10 ~ 10,
+    m14 == 11 ~ 11,
+    m14 == 12 ~ 12,
+    m14 == 13 ~ 13,
+    m14 == 14 ~ 14,
+    m14 == 15 ~ 15,
+    m14 == 16 ~ 16
+  ))
+
 ##catagorise BMI Underweight <18.5, Normal 18.5-24.9, overweight 25-29.9, obese 30+
 
 ##divide bmi v445 by 100 and 9998 as flagged as probably incorrect calcuation - will set to NA
