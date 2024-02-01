@@ -291,6 +291,9 @@ births_clean <- births_clean %>%
     TRUE ~ as.character(NA) # default case to return NA for values that don't fit any of the above conditions
   ))
 
+#16. BMI (v445)
+
+
 ############### Checking for missingness for table 2 regression ####################
 
 # Checking initial numbers 
@@ -346,7 +349,7 @@ table(births_clean$m70,births_clean$neo_mort,  births_clean$v025, useNA = "alway
 
 #m19 - bw in kg
 table(births_clean$m19, births_clean$neo_mort, useNA = "always")
-#Result: YES Neo_mort -  NA = 47
+#Result: YES Neo_mort -  NA = 47, NAs should be excluded from analysis in Table 2
 
 #v457, v456, v445 (Done by specific households, randomised)
 table(births_clean$v457, births_clean$neo_mort, useNA = "always")
@@ -359,10 +362,215 @@ table(teendata$contra_current, teendata$contra_future, useNA = "always") # can't
 round(svytable(~contra_future + v025, design = dhs, na.action = na.pass)/1e6,0) # this table is used to
 
 
-
 ############### TABLE 2. BIVARAIATE ANALYSIS ####################
+births_clean$neo_mort <- factor(births_clean$neo_mort)
+levels(births_clean$neo_mort) #Checking levels of outcome 
+
+#Setting up survey package 
+births_clean$wt <- births_clean$v005/1000000
+
+design <- survey::svydesign(id=~v001, 
+                            strata =~v023, 
+                            weights=~wt,
+                            data= births_clean)
+
+#Neo_mort
+births_clean$neo_mort <- factor(births_clean$neo_mort, levels = c("No", "Yes"), labels = c(0, 1))
+
+#1. Post natal check (m70)
+unique(births_clean$m70) 
+
+# Replace "NA" and "8" with 0
+births_clean$m70[is.na(births_clean$m70)] <- 0
+births_clean$m70 <- ifelse(births_clean$m70 == 8, 0, births_clean$m70)
+count(births_clean$m70)
+
+levels(births_clean$m70) #Checking levels of outcome  
+
+count(births_clean$neo_mort)
+count(births_clean$m70)
+
+model_m70 <- svyglm(neo_mort ~ factor(m70), 
+                    design = design, 
+                    family = quasibinomial(), 
+                    na.action = na.exclude)
+
+print(exp(coef(model_m70))) %>% round(2)
+print (exp (confint(model_m70))) %>% round(2)
+print(summary(model_m70)$coefficients[ , "Pr(>|t|)"]) %>% round(2)
+
+
+#2. Gestation at birth (b20)
+mode(births_clean$b20)
+count(births_clean$b20)
+births_clean$b20 <- factor(births_clean$b20)
+levels(births_clean$b20) #Checking levels of outcome
+
+model_b20 <- svyglm(neo_mort ~ b20,
+                    design = design, 
+                    family = quasibinomial(),
+                    na.action = na.exclude)
+
+print (exp (coef(model_b20)[2])) %>% round(2)
+print (exp (confint(model_b20)[2, ])) %>% round(2)
+print (summary(model_b20)$coefficients[2,"Pr(>|t|)"]) %>% round(2)
+
+#3. Sex of baby (b4) 1 - male , 2 - female
+mode(births_clean$b4)
+births_clean$b4 <- factor(births_clean$b4)
+levels(births_clean$b4) #Checking levels of outcome
+
+model_b4 <- svyglm(neo_mort ~ b4, 
+                   design = design, 
+                   family = quasibinomial(), 
+                   na.action = na.exclude)
+
+print (exp (coef(model_b4)[2])) %>% round(2)
+print(exp(confint(model_b4)[2, ])) %>% round(2)
+print(summary(model_b4)$coefficients[2,"Pr(>|t|)"]) %>% round(2)
+
+#4. Birth weight (m19)
+count(births_clean$m19)
+births_clean$m19 <- relevel(factor(births_clean$m19), ref = "notlowbw")
+levels(births_clean$m19)
+
+model_m19 <- svyglm(neo_mort ~ factor(m19), 
+                   design = design, 
+                   family = quasibinomial(), 
+                   na.action = na.omit)
+
+print (exp (coef(model_m19)[2])) %>% round(2)
+print(exp(confint(model_m19)[2, ])) %>% round(2)
+print(summary(model_m19)$coefficients[2,"Pr(>|t|)"]) %>% round(2)
+
+#5. Delivery by C section  (m17) 
+mode(births_clean$m17)
+as.factor(births_clean$m17) %>% levels()
+
+model_m17 <- svyglm(neo_mort ~ factor(m17), 
+                   design = design, 
+                   family = quasibinomial(), 
+                   na.action = na.exclude)
+
+print(exp(coef(model_m17)[2])) %>% round(2)
+print (exp (confint(model_m17)[2, ])) %>% round(2)
+print(summary(model_m17)$coefficients[2,"Pr(>|t|)"]) %>% round(2)
+
+#6. Assistance at birth (senior_delivery_attendant)
+mode(births_clean$senior_delivery_attendant)
+unique(births_clean$senior_delivery_attendant)
+
+model_aab <- svyglm(neo_mort ~ factor(senior_delivery_attendant), 
+                    design = design, 
+                    family = quasibinomial(), 
+                    na.action = na.exclude)
+
+print(exp(coef(model_aab))) %>% round(2)
+print (exp (confint(model_aab))) %>% round(2)
+print(summary(model_aab)$coefficients[,"Pr(>|t|)"]) %>% round(2)
+
+#7. Place of delivery (m15)
+mode(births_clean$m15)
+unique(births_clean$m15)
+
+model_m15 <- svyglm(neo_mort ~ factor(m15), 
+                    design = design, 
+                    family = quasibinomial(), 
+                    na.action = na.exclude)
+
+print(exp(coef(model_m15))) %>% round(2)
+print (exp (confint(model_m15))) %>% round(2)
+print(summary(model_m15)$coefficients[,"Pr(>|t|)"]) %>% round(2)
+
+#8. Multiple pregnancies (v201)
+mode(births_clean$v201)
+unique(births_clean$v201)
+
+model_v201 <- svyglm(neo_mort ~ v201, 
+                    design = design, 
+                    family = quasibinomial(), 
+                    na.action = na.exclude)
+
+print(exp(coef(model_v201)[2])) %>% round(2)
+print (exp (confint(model_v201)[2, ])) %>% round(2)
+print(summary(model_v201)$coefficients[2,"Pr(>|t|)"]) %>% round(2)
+
+#9. Number of ANC visits 
+births_clean$ANC_visits
+births_BR$ANC_visits
+
+#10. Number of pregnancies with hypertension (s1125)
+mode(births_clean$s1125)
+unique(births_clean$s1125)
+sum(is.na(births_clean$s1125)) #no NAs!!!
+as.factor(births_clean$s1125) %>% levels() 
+
+model_s1125 <- svyglm(neo_mort ~ factor(s1125), 
+                     design = design, 
+                     family = quasibinomial(), 
+                     na.action = na.exclude)
+
+print(exp(coef(model_s1125)[2])) %>% round(2)
+print (exp (confint(model_s1125)[2, ])) %>% round(2)
+print(summary(model_s1125)$coefficients[2,"Pr(>|t|)"]) %>% round(2)
+
+#11. Number of pregnancies with anaemia (v457) 
+mode(births_clean$v457)
+unique(births_clean$v457)
+sum(is.na(births_clean$v457)) #Will need to exclude NAs records with na.omit
+as.factor(births_clean$v457) %>% levels()
+
+model_v457 <- svyglm(neo_mort ~ factor(v457), 
+                      design = design, 
+                      family = quasibinomial(), 
+                      na.action = na.omit)
+
+print(exp(coef(model_v457))) %>% round(2)
+print (exp (confint(model_v457))) %>% round(2)
+print(summary(model_v457)$coefficients[,"Pr(>|t|)"]) %>% round(2)
+
+#12. Pregnancy losses (v245)
+mode(births_clean$v245)
+unique(births_clean$v245)
+sum(is.na(births_clean$v245)) #No NAs
+
+model_v245 <- svyglm(neo_mort ~ v245, 
+                      design = design, 
+                      family = quasibinomial(), 
+                      na.action = na.exclude)
+
+print(exp(coef(model_v245)[2])) %>% round(2)
+print (exp (confint(model_v245)[2, ])) %>% round(2)
+print(summary(model_v245)$coefficients[2,"Pr(>|t|)"]) %>% round(2)
+
+#13. Wealth quintile (v190)
+mode(births_clean$v190)
+unique(births_clean$v190)
+sum(is.na(births_clean$v190)) #No NAs
+as.factor(births_clean$v190) %>% levels()
+
+model_v190 <- svyglm(neo_mort ~ factor(v190), 
+                     design = design, 
+                     family = quasibinomial(), 
+                     na.action = na.exclude)
+
+print(exp(coef(model_v190))) %>% round(2)
+print (exp (confint(model_v190))) %>% round(2)
+print(summary(model_v190)$coefficients[,"Pr(>|t|)"]) %>% round(2)
+
+#14. BMI (v445)
+mode(births_clean$v445)
+unique(births_clean$v445)
+sum(is.na(births_clean$v245)) #No NAs
+
+model_v245 <- svyglm(neo_mort ~ v245, 
+                     design = design, 
+                     family = quasibinomial(), 
+                     na.action = na.exclude)
+
+print(exp(coef(model_v245)[2])) %>% round(2)
+print (exp (confint(model_v245)[2, ])) %>% round(2)
+print(summary(model_v245)$coefficients[2,"Pr(>|t|)"]) %>% round(2)
 
 
 
-
-                                      
