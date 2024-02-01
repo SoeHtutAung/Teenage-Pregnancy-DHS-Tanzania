@@ -16,9 +16,17 @@ NM_variables <- readLines("/Users/nikkiyu/Downloads/2 Data Challenge/unicef/nm s
 
 ##FILTER DATA BY VARIABLE CODES
 ##use txt file of codes to filter births dataset
-births_subset <- births_BR %>% select(all_of(NM_variables)) %>% mutate(v024 = births_BR$v024)
+selected_vars <- c(
+  "caseid", "bidx", "v023", "v025", "v001", "v002", "v005", "v012", "v011", "v008",
+  "b3", "b0", "b11", "b12", "b20", "b4", "b5", "b6", "b7", "m13", "m14", "m15", "m17",
+  "m19", "m3a", "m3b", "m3c", "m3d", "m3e", "m3f", "m3g", "m3h", "m3i", "m3k", "m3n",
+  "m45", "m66", "m70", "s1125", "v190", "v457", "v011", "v456", "v155", "v201", "v245",
+  "v445", "v463aa", "v485a", "v501"
+)
 
-
+selected_births <- births_BR %>%
+  dplyr::select(all_of(selected_vars)) %>%
+  dplyr::mutate(v024 = births_BR$v024)
 
 ##CREATE NEW VARS
 ##mum_age_pregancy = mum dob - baby dob
