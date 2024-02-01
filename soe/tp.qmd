@@ -18,6 +18,8 @@ library(forestplot)
 library(jtools)
 #install.packages("MASS")
 library(MASS)
+# install.packages ("caret")
+library(caret)
 ```
 
 ## 2. Load data
@@ -698,15 +700,38 @@ coef_se <- sqrt(diag(vcov(model_contra_current)))
 
 ### 10.2 Multiple variable logistic regression
 
+Prepare dataset by excluding variables with \<0.1 p-value in bivariate analysis, and variables only for a subset of sample (e.g., questions only for married women). And create design for survey package.
+
+```{r subsetdata_glm, warning =FALSE}
+# final subset for models
+glmdata <- finaldata %>% dplyr::select (c(
+  v005, v021, v023, # for design
+  teen_preg, # outcome 
+  v025, # exposure
+  v024, # region
+  v012,edu_gp,marital,  # socio demographic - age, education, marital,
+  v190,employ_current, # socio economnic - wealth, employment,
+  contra_know_any, fp_info, # health behaviour - knowledge contraceptive, heard about FP messages
+  v467c,v467f, # problem access to services - money, alone
+  edu # hh characteristics - highest edu in hh, 
+))
+
+# Omit na values from dataset
+glmdata <- na.omit(glmdata) # 48 observations are deleted
+
+# create survey design for glm
+glmdesign <- svydesign(id = ~v021, strata = ~v023, weights = ~v005, data = glmdata)
+```
+
 Forward approach:
 
 -   Model 1: Socio-demographic - age, education, marital status
 
-```{r model1}
+```{r model1, warning=FALSE}
 # age, education, marital status
 modelm_1 <- svyglm(teen_preg ~ factor(v025) + 
-                      v012 + factor (edu_gp) + factor (marital),
-                   design = dhsfinal, family = binomial(), na.action = na.exclude)
+                     v012 + factor (edu_gp) + factor (marital),
+                   design = glmdesign, family = binomial(), na.action = na.exclude)
 
 print (exp (coef(modelm_1)))
 print (exp (confint(modelm_1)))
@@ -715,12 +740,12 @@ print (summary(modelm_1)$coefficients[,"Pr(>|t|)"])
 
 -   Model 2: Model 1+ Socio-economic - wealth index, employment
 
-```{r model2}
+```{r model2, warning=FALSE}
 # wealth index, employment
 modelm_2 <- svyglm(teen_preg ~ factor(v025) + 
                      v012 + factor (edu_gp) + factor (marital) + 
                      factor (v190) + factor (employ_current), 
-                   design = dhsfinal, family = binomial(), na.action = na.exclude)
+                   design = glmdesign, family = binomial(), na.action = na.exclude)
 
 print (exp (coef(modelm_2)))
 print (exp (confint(modelm_2)))
@@ -735,7 +760,7 @@ modelm_3 <- svyglm(teen_preg ~ factor(v025) +
                      v012 + factor (edu_gp) + factor (marital) + 
                      factor (v190) + factor (employ_current) +
                      factor (contra_know_any) + factor (fp_info),
-                   design = dhsfinal, family = binomial(), na.action = na.exclude)
+                   design = glmdesign, family = binomial(), na.action = na.exclude)
 
 print (exp (coef(modelm_3)))
 print (exp (confint(modelm_3)))
@@ -750,8 +775,8 @@ modelm_4 <- svyglm(teen_preg ~ factor(v025) +
                      v012 + factor (edu_gp) + factor (marital) + 
                      factor (v190) + factor (employ_current) +
                      factor (contra_know_any) + factor (fp_info) +
-                     factor (v467b) + factor (v467c) +factor (v467d) +factor (v467f),
-                   design = dhsfinal, family = binomial(), na.action = na.exclude)
+                     factor (v467c) +factor (v467f),
+                   design = glmdesign, family = binomial(), na.action = na.exclude)
 
 print (exp (coef(modelm_4)))
 print (exp (confint(modelm_4)))
@@ -760,15 +785,15 @@ print (summary(modelm_4)$coefficients[,"Pr(>|t|)"])
 
 -   Model 5: Model 4 + HH characteristics - hh size, sex of hh head
 
-```{r model5}
+```{r model5, warning=FALSE}
 # hh size, sex of hh head
 modelm_5 <- svyglm(teen_preg ~ factor(v025) + 
                      v012 + factor (edu_gp) + factor (marital) + 
                      factor (v190) + factor (employ_current) +
                      factor (contra_know_any) + factor (fp_info) +
-                     factor (v467b) + factor (v467c) +factor (v467d) +factor (v467f) +
-                     hv012 + factor (hv219),
-                   design = dhsfinal, family = binomial(), na.action = na.exclude)
+                     factor (v467c) +factor (v467f) +
+                     factor (edu),
+                   design = glmdesign, family = binomial())
 
 print (exp (coef(modelm_5)))
 print (exp (confint(modelm_5)))
@@ -777,10 +802,10 @@ print (summary(modelm_5)$coefficients[,"Pr(>|t|)"])
 
 ### 10.3 Check multicolinearity by VIF
 
-All 5 models are checked for multicolinearity.
+The full model is checked for multicolinearity using adjusted Generalized Variance Inflation Factors (GVIF).
 
 ```{r VIF}
-# Calculate VIF values to check high VIF values (>5)
+# Calculate VIF values to check high adjusted GVIF values (>5)
 car::vif(modelm_5)
 ```
 
@@ -793,28 +818,25 @@ plot(modelm_5)
 
 ### 10.5 Model fitting
 
-Remove outliers, log transformation and taking out not significant variables: NO DIFFERENCE
+**Attempt 1:** Remove outliers, log transformation and taking out not significant variables: **AIC reduced from 1,699.57 in full model (modelm_5) to 1,559.18 after removing outliers.**
 
 ```{r modelfit}
 # check 10 outliers *** only after generating model ***
-plot(modelm_5, which = 4, id.n = 20) 
+plot(modelm_5, which = 4, id.n = 10) 
+
 # remove outliers
-fitdata <- finaldata [- c(70,178,445,509,721,769,904,1216,1650,
-1686,1721,1783,1787,1823,1839,1856,2008,2065,2066),]
-#dim(fitdata)
+fitdata <- glmdata [- c(70,442,505,607,1680,1777,1781,1850,1996,2002),]
 
 # create design using fitdata
 dhsfit <- svydesign(id = ~v021, strata = ~v023, weights = ~v005, data = fitdata)
 
-# develop model by (1) using log transformed quantitative (2) remove < 0.05 variables from model 1 - 4
+# develop model
 modelfit <- svyglm(teen_preg ~ factor(v025) + 
-                     log(v012) + factor (edu_gp) + factor (marital) + 
-                     # factor (v190) + factor (employ_current) +
+                     v012 + factor (edu_gp) + factor (marital) + 
+                     factor (v190) + factor (employ_current) +
                      factor (contra_know_any) + factor (fp_info) +
-                     # factor (v467d) + factor (v467c) +
-                     factor (v467b) + factor (v467f) +
-                     # factor (hv219) + 
-                     log(hv012),
+                     factor (v467c) +factor (v467f) +
+                     factor (edu),
                    design = dhsfit, family = binomial(),
                    na.action = na.exclude)
 
@@ -822,35 +844,29 @@ modelfit <- svyglm(teen_preg ~ factor(v025) +
 plot(modelfit)
 
 # testing summ package for summary and forest plot
-## summarizing, can check colinearlity together
-summ(modelfit, vifs = TRUE) # lowest AIC so far AIC = 1500.12 
-summ(modelm_5, vifs = TRUE) # AIC 1692.89
-
-## plotting
-plot_summs(modelfit) # only one model
-plot_summs(fitted = modelfit, full = modelm_5) # compare full vs fitted
+## summarizing, can check colinearlity* together (*be cautious to interpret high VIF values within same categorical variables)
+summ(modelfit, vifs = TRUE) # AIC 1559.18 
+summ(modelm_5, vifs = TRUE) # AIC 1699.57
 ```
 
-Alternative dataset - using only married: NO DIFFERENCE
+**Attempt 2:** Alternative dataset - using only married. AIC is greatly reduced to 1,159, but the purpose of our analysis for teenage pregnancy regardless of marital status. So, **we will not use this model** since it will censor information about adolescent who are not in a marriage/union.
 
 ```{r alternative}
 # remove married
-marrydata <- finaldata %>% filter (marital != 1)
+marrydata <- glmdata %>% filter (marital != 1)
 dim(marrydata)
 # marrydata <- marrydata [- c(1404,55,1488,1434,2201,1521),] # no difference
 
 # create design using fitdata
 dhsmarry <- svydesign(id = ~v021, strata = ~v023, weights = ~v005, data = marrydata)
 
-# develop model by (1) using log transformed quantitative (2) remove < 0.05 variables from model 1 - 4
+# develop model
 modelmarry <- svyglm(teen_preg ~ factor(v025) + 
-                     log(v012) + factor (edu_gp) + # factor (marital) + 
-                     # factor (v190) + factor (employ_current) +
+                     v012 + factor (edu_gp) + factor (marital) + 
+                     factor (v190) + factor (employ_current) +
                      factor (contra_know_any) + factor (fp_info) +
-                     # factor (v467d) + factor (v467c) +
-                     factor (v467b) + factor (v467f) +
-                     # factor (hv219) + 
-                     log(hv012),
+                     factor (v467c) +factor (v467f) +
+                     factor (edu),
                    design = dhsmarry, family = binomial(),
                    na.action = na.exclude)
 
@@ -858,21 +874,47 @@ modelmarry <- svyglm(teen_preg ~ factor(v025) +
 plot(modelmarry)
 
 # testing summ package for summary and forest plot
-## summarizing, can check colinearlity together
-summ(modelmarry, vifs = TRUE)
-
-## plotting
-plot_summs(modelmarry) # only one model
+## summarizing, can check colinearlity* together (*be cautious to interpret high VIF values within same categorical variables)
+summ(modelmarry, vifs = TRUE) # AIC 1159.30
+summ(modelm_5, vifs = TRUE) # AIC 1699.57
 ```
 
-Using stepAIC as Tutor suggested
+**Attempt 3:** We use stepAIC as Tutor suggested. From the forward approach to both full model (modelm_5) and fit model (10 ouliers excluded), no variables has been taken out from this process. So, not improvement could be made.
 
-```{r stepAIC}
+```{r stepAIC, warning=FALSE}
 # apply stepwise regression (forward) for full model (modelm_5)
 stepfull <- stepAIC(modelm_5, direction = "forward")
-stepfull$anova # no improvement at AIC 1721.479 (different from summ function)
+stepfull$anova # compare initial and final model
 
 # apply stepwise regression (forward) for fitted model (modelfit)
 stepfit <- stepAIC(modelfit, direction = "forward")
-stepfit$anova # no improvement at AIC 1519.622 (different from summ function)
+stepfit$anova # compare initial and final model
+
+# see the results 
+stepfull$deviance; stepfit$deviance # compare deviance >1
+stepfull$aic; stepfit$aic # compare aic
+```
+
+**Final decision**: AIC value compromises both fit and complexity, so we choose model based on its AIC. Fitted model has lower AIC of 1,559 when full model has 1,700. AUC is another performance perspective to evaluate model. Fit model has 91.2% (95% CI 0.90 - 0.92) accuracy while full model has slightly lower accuracy of 90.7%. So, we will choose fitted model (modelfit) as our logistic regression model.
+
+```{r decision}
+# comparing deviance and aic
+modelm_5$deviance; modelfit$deviance # 1663.45 vs 1526.331 - loss greately improved when outliers are removed
+modelm_5$aic; modelfit$aic # 1699.573 vs 1559.184 
+
+# comparing accuracy
+## full model preprocess
+predfull <- predict(modelm_5, glmdata, type = "response") 
+predfull <- as.factor(ifelse(predfull >= 0.5, 1, 0))
+## fit model preprocess
+predfit <- predict(modelfit, fitdata, type = "response") 
+predfit <- as.factor(ifelse(predfit >= 0.5, 1, 0))
+## compare two confusion matrix
+confusionMatrix(predfull,glmdata$teen_preg, positive = "1")
+confusionMatrix(predfit,fitdata$teen_preg, positive = "1")
+
+# get values from our final model
+print (exp (coef(modelfit)))
+print (exp (confint(modelfit)))
+print (summary(modelfit)$coefficients[,"Pr(>|t|)"])
 ```
