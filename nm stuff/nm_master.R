@@ -193,6 +193,8 @@ dict_births_BR <- data.frame(
   description = variable_labels_BR_clean
 )
 
+
+
 ######################## NIKKI SECTION - TABLE 1 CONTEXT ######################## 
 #Setting up survey package 
 births_clean$wt <- births_clean$v005/1000000
@@ -231,7 +233,7 @@ count(births_clean$ANC_visits[births_clean$v025 == 2]) #Rural
 
 round(prop.table(svytable(~ ANC_visits + v025, design = design) ,margin = 2) *100, 2)
 
-#4. Number of pregnancies in pregnancy intervals
+#4. Number of pregnancies in pregnancy intervals - IGNORE
 
 #5. Number of pregnancies by mulitplicity of mothers (v201) 
 
@@ -309,7 +311,7 @@ print(count_df)
 round(prop.table(svytable(~ b4 + v025, design = design) ,margin = 2) *100, 2)
 
 #12. Gestation at birth (b20)
-count_df <- count(births_clean$b20)
+count_df <- count(births_clean$b20_cat)
 count_df$percentage <- round((count_df$freq / 5619) * 100,2)
 print(count_df)
 
@@ -353,11 +355,11 @@ round(prop.table(svytable(~ v463aa + v025, design = design) ,margin = 2) *100, 2
 
 
 #18.BMI - v445################################
-unique(births_clean$v445)
-count(births_clean$v445)$freq/5619
-count(births_clean$v445[births_clean$v025 == 1]) #Urban
-count(births_clean$v445[births_clean$v025 == 2]) #Rural
-round(prop.table(svytable(~ v445 + v025, design = design) ,margin = 2) *100, 2)
+unique(births_clean$v445_cat)
+count(births_clean$v445_cat)$freq/5619
+count(births_clean$v445_cat[births_clean$v025 == 1]) #Urban
+count(births_clean$v445_cat[births_clean$v025 == 2]) #Rural
+round(prop.table(svytable(~ v445_cat + v025, design = design) ,margin = 2) *100, 2)
 
 #19.assistance at delivery - senior person attednign
 unique(births_clean$senior_delivery_attendant)
@@ -376,11 +378,11 @@ round(prop.table(svytable(~ b20 + v025, design = design) ,margin = 2) *100, 2)
 
 
 #21.bw m19
-unique(births_clean$m19)
-count(births_clean$m19)$freq/5619
-count(births_clean$m19[births_clean$v025 == 1]) #Urban
-count(births_clean$m19[births_clean$v025 == 2]) #Rural
-round(prop.table(svytable(~ m19 + v025, design = design) ,margin = 2) *100, 2)
+unique(births_clean$m19_cat)
+count(births_clean$m19_cat)$freq/5619
+count(births_clean$m19_cat[births_clean$v025 == 1]) #Urban
+count(births_clean$m19_cat[births_clean$v025 == 2]) #Rural
+round(prop.table(svytable(~ m19_cat + v025, design = design) ,margin = 2) *100, 2)
 
 
 ############### Checking for missingness for table 2 regression ####################
@@ -452,4 +454,3 @@ round(svytable(~contra_future + v025, design = dhs, na.action = na.pass)/1e6,0) 
 
 
 
-############### TABLE 2. BIVARAIATE ANALYSIS ####################
