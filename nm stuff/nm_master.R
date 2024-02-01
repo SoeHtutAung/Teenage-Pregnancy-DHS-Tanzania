@@ -171,7 +171,7 @@ births_last3years <- births_last3years %>%
 births_clean <- births_last3years %>% 
   dplyr::select(-v011, -v008, -b3, -m3a, -m3b, -m3c, -m3d
          , -m3e, -m3f, -m3g, -m3h, -m3i, -m3k, -m3n
-         , - test, -v012, -b6, -b7, -m14)
+         , - test, -v012, -b6, -b7)
 
 ##reorder dataframe
 # births_clean <- births_clean %>%
