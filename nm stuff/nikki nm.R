@@ -36,27 +36,13 @@ births_last3years <- births_subset %>% filter(test < 3)
 ##summary
 summary(births_last3years)
 
-##I used the summary to reduce the variable list and altered the txt file accordingly
-##I kept BMI(v445) (even though 2782 records missing BMI
-## Kept Hb/anaemia level(v456/v457) as we know not all women were checked
-## m70 from NR (baby postnatal checked within 2 months - maybe not so useful as neo_mort defined as death within 1 month)
-## m70 and m66 are regarding health checks for mother and baby were well completed
-## however the other variables related to health checks (time and person who did check) had >50% missingness
 
 ##NEW VAR FOR NEONATAL MORTALITY
-##create new column to indicate if neonatal death (130 is 30 days, so if b6 <= 130 it will be 1)
-## the second line gives the age in days of the baby when it died
 births_last3years <- births_last3years %>%
   mutate(neo_mort = ifelse(is.na(b6) | b6 > 130, "No", "Yes"),
          age_at_death_days = ifelse(neo_mort == "Yes", b6 %% 100, NA))
 
 ##RECODE DELIVERY ASSISTANT COLUMNS
-##combine the columns m3a-m3n (assistant at delivery) into one column with factors
-##From DHS statistics manual - 
-##During data collection respondents may mention more than one provider. The percent distribution by type of provider takes the highest type of provider from the list above and does not include other providers mentioned by the respondent
-## re coded as per stats manual although these columns vary by country and not sure where to put mch aide
-##currently put if (m3f) in with auxillery nurse as it seems like a community clinical role
-
 births_last3years <- births_last3years %>%
   mutate(
     senior_delivery_attendant = case_when(
@@ -102,7 +88,7 @@ births_last3years<- births_last3years %>%
 
 ##remove uneeded recoded variables
 births_clean <- births_last3years %>% 
-  select(-v011, -v008, -b3, -m3a, -m3b, -m3c, -m3d
+  select (-v011, -v008, -b3, -m3a, -m3b, -m3c, -m3d
          , -m3e, -m3f, -m3g, -m3h, -m3i, -m3k, -m3n
          , - test, -v012, -b6, -b7, -m14)
 
@@ -144,7 +130,6 @@ count(births_clean$v457[births_clean$v025 == 1]) #Urban
 count(births_clean$v457[births_clean$v025 == 2]) #Rural 
 
 round(prop.table(svytable(~ v457 + v025, design = design) ,margin = 2) *100, 2)
-
 
 #2. Number of pregnancies ever told they had HT (s1125)
 births_clean$s1125
@@ -306,7 +291,76 @@ births_clean <- births_clean %>%
     TRUE ~ as.character(NA) # default case to return NA for values that don't fit any of the above conditions
   ))
 
+############### Checking for missingness for table 2 regression ####################
 
+# Checking initial numbers 
+births_clean %>% summarise(total_weight = round(sum(v005)/1e6,0)) #total observations = 5652
+
+#Checking missingness of values
+na_list <- colnames(births_clean)[colSums(is.na(births_clean)) > 0]
+
+#For NA details
+for (col in na_list) {
+  na_count <- sum(is.na(births_clean[, col]))
+  cat("Variable", col, "> NAs", na_count, "\n")
+}
+
+births_clean$age_at_death_days
+
+# Variable age_at_death_days > NAs 5493 
+# Variable m13 > NAs 983 "timing of 1st antenatal check (months) "
+# Variable ANC_visits > NAs 424 
+# Variable m19 > NAs 1215 "birth weight in kilograms (3 decimals) "
+# Variable m45 > NAs 424 "during pregnancy, given or bought iron tablets/syrup "
+# Variable m66 > NAs 425 "respondent's health checked after discharge/delivery at home "
+# Variable m70 > NAs 425 "child's health checked after discharge/delivery at home"
+# Variable v457 > NAs 2787 "anaemia level" 
+# Variable v456 > NAs 2787 "hemoglobin level adjusted for altitude and smoking (g/dl - 1 decimal) "
+# Variable v445 > NAs 2782 "bmi"
+
+##FINDINGS: 
+table(births_clean$neo_mort, useNA = "always") #No NAs in neonatal mortality status
+table(births_clean$neo_mort, births_clean$v025, useNA = "always")
+#Only 126 records of neonatal mortality YES
+
+#age_at_death_days
+table(births_clean$age_at_death_days, births_clean$neo_mort, useNA = "always")
+round(svytable(~age_at_death_days + v025, design = design, na.action = na.pass)/1e6,0)
+# All NAs are in those with 'NO" neo_mort
+# No records for age of death with urban and rural split
+
+#m13 - timing of 1st antenatal check 
+table(births_clean$m13, births_clean$neo_mort, useNA = "always")
+#Most records are in 'no' neo_mort but there are some in 'yes' neo_mort, NAs in 'Yes' neo_mort is small but 50% of all yes records.
+#"Don't know" or missing values on number of antenatal care visits and timing of first ANC are excluded from numerators but included in denominators.
+
+
+#ANC_visits, m45, m66, 70 
+table(births_clean$ANC_visits, births_clean$neo_mort, useNA = "always")
+table(births_clean$m45,births_clean$neo_mort, useNA = "always")
+table(births_clean$m66,births_clean$neo_mort, useNA = "always")
+table(births_clean$m70,births_clean$neo_mort, useNA = "always")
+table(births_clean$m70,births_clean$neo_mort,  births_clean$v025, useNA = "always")
+#Result: Only half of neo_mort YES have been interviewed for these questions - NA = 35 
+#NAs and 'dont know' are assumed to have not received in the intervertion
+
+#m19 - bw in kg
+table(births_clean$m19, births_clean$neo_mort, useNA = "always")
+#Result: YES Neo_mort -  NA = 47
+
+#v457, v456, v445 (Done by specific households, randomised)
+table(births_clean$v457, births_clean$neo_mort, useNA = "always")
+table(births_clean$v456, births_clean$neo_mort, useNA = "always")
+table(births_clean$v445, births_clean$neo_mort, useNA = "always")
+#Result: Neo_mort YES (126), 68 are recorded to be NA for v457, v456
+#About 2782 aren't recorded as they were not interviewed 
+
+table(teendata$contra_current, teendata$contra_future, useNA = "always") # can't identify exact numbers
+round(svytable(~contra_future + v025, design = dhs, na.action = na.pass)/1e6,0) # this table is used to
+
+
+
+############### TABLE 2. BIVARAIATE ANALYSIS ####################
 
 
 
