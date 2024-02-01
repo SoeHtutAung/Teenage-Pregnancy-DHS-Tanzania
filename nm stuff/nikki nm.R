@@ -338,7 +338,7 @@ table(births_clean$m13, births_clean$neo_mort, useNA = "always")
 #"Don't know" or missing values on number of antenatal care visits and timing of first ANC are excluded from numerators but included in denominators.
 
 
-#ANC_visits, m45, m66, 70 
+#ANC_visits (m14), m45, m66, 70 
 table(births_clean$ANC_visits, births_clean$neo_mort, useNA = "always")
 table(births_clean$m45,births_clean$neo_mort, useNA = "always")
 table(births_clean$m66,births_clean$neo_mort, useNA = "always")
@@ -561,16 +561,17 @@ print(summary(model_v190)$coefficients[,"Pr(>|t|)"]) %>% round(2)
 #14. BMI (v445)
 mode(births_clean$v445)
 unique(births_clean$v445)
-sum(is.na(births_clean$v245)) #No NAs
+levels(births_clean$v445)
+sum(is.na(births_clean$v445)) #No NAs
 
-model_v245 <- svyglm(neo_mort ~ v245, 
+model_v445 <- svyglm(neo_mort ~ v445, 
                      design = design, 
                      family = quasibinomial(), 
-                     na.action = na.exclude)
+                     na.action = na.omit)
 
-print(exp(coef(model_v245)[2])) %>% round(2)
-print (exp (confint(model_v245)[2, ])) %>% round(2)
-print(summary(model_v245)$coefficients[2,"Pr(>|t|)"]) %>% round(2)
+print(exp(coef(model_v445)[2])) %>% round(2)
+print (exp (confint(model_v445)[2, ])) %>% round(2)
+print(summary(model_v445)$coefficients[2,"Pr(>|t|)"]) %>% round(2)
 
 
 
