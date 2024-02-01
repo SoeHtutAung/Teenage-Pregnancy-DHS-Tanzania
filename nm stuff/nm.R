@@ -427,7 +427,7 @@ NM_variables <- readLines("/Users/nikkiyu/Downloads/2 Data Challenge/unicef/nm s
 
 ##FILTER DATA BY VARIABLE CODES
 ##use txt file of codes to filter births dataset
-births_subset <- births_BR %>% select(all_of(NM_variables)) %>% mutate(v024 = births_BR$v024)
+births_subset <- births_BR %>% select(all_of(NM_variables))
 
 
 
@@ -449,7 +449,7 @@ summary(births_last3years)
 
 ##NEW VAR FOR NEONATAL MORTALITY
 births_last3years <- births_last3years %>%
-  mutate(neo_mort = ifelse(is.na(b6) | b6 > 130, "No", "Yes"),
+  mutate(neo_mort = ifelse(is.na(b6) | b6 > 130, "NO", "Yes"),
          age_at_death_days = ifelse(neo_mort == "Yes", b6 %% 100, NA))
 
 ##RECODE DELIVERY ASSISTANT COLUMNS
@@ -554,8 +554,8 @@ births_last3years <- births_last3years %>% mutate(
 ######b20 gestation at bith recode
 births_last3years <- births_last3years %>% mutate(
   b20 = case_when(
-    b20 < 8 ~ "preterm",
-    b20 >= 8 ~"fullterm",
+    b20 <= 8 ~ "preterm",
+    b20 > 8 ~"fullterm",
     TRUE ~ NA
   )
 )
@@ -858,3 +858,27 @@ round(svytable(~contra_future + v025, design = dhs, na.action = na.pass)/1e6,0) 
 
 
 ############### TABLE 2. BIVARAIATE ANALYSIS ####################
+###i am working from top
+##### use continuos varibles where availabe
+##factorise and relevel each cat variable
+##check NAs
+
+births_clean$neo_mort <- as.factor(births_clean$neo_mort)
+design <- survey::svydesign(id=~v001, 
+                            strata =~v023, 
+                            weights=~wt,
+                            data= births_clean)
+
+###looking at OR of outcome in Urban rural first, followed by each characteristic variable
+model_v025 <- svyglm(neo_mort ~ factor(v025),
+                     design, family = quasibinomial())
+
+print (exp (coef(model_v025)[2]))
+print (exp (confint(model_v025)[2, ]))
+print (summary(model_v025)$coefficients[2,"Pr(>|t|)"])
+
+
+
+####1.age#######
+sum(is.na(births_clean$mum_age_pregnancy)) ##no NAs
+

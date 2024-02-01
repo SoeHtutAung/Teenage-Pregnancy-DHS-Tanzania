@@ -86,7 +86,7 @@ births_last3years <- births_last3years %>%
   mutate(m19 = ifelse(m19 %in% c(9996, 9998), NA, m19))
 
 births_last3years <- births_last3years %>% mutate(
-  m19 = case_when(
+  m19_cat = case_when(
     m19 <2500 ~ "lowbw",
     m19 >=2500 ~ "notlowbw",
     TRUE ~ NA_character_ 
@@ -139,7 +139,7 @@ births_last3years<- births_last3years %>%
 births_last3years$v445 <- as.numeric(births_last3years$v445)/100
 
 births_last3years <- births_last3years %>% mutate(
-  v445 = case_when(
+  v445_cat = case_when(
     v445 < 18.5 ~ "Underweight",
     (18.5 <= v445 & v445 < 25) ~ "Normal",
     (25 <= v445 & v445 < 30) ~ "Overweight",
@@ -150,7 +150,7 @@ births_last3years <- births_last3years %>% mutate(
 
 ######b20 gestation at bith recode
 births_last3years <- births_last3years %>% mutate(
-  b20 = case_when(
+  b20_cat = case_when(
     b20 <= 8 ~ "preterm",
     b20 > 8 ~"fullterm",
     TRUE ~ NA
