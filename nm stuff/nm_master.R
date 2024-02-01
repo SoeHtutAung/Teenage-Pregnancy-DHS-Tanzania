@@ -151,8 +151,8 @@ births_last3years <- births_last3years %>% mutate(
 ######b20 gestation at bith recode
 births_last3years <- births_last3years %>% mutate(
   b20 = case_when(
-    b20 < 8 ~ "preterm",
-    b20 >= 8 ~"fullterm",
+    b20 <= 8 ~ "preterm",
+    b20 > 8 ~"fullterm",
     TRUE ~ NA
   )
 )
