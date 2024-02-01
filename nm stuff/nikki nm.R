@@ -282,6 +282,7 @@ round(prop.table(svytable(~ mum_age_pregnancy_cat + v025, design = design) ,marg
 
 #15. Birth weight (m19)
 count(births_clean$m19)
+
 births_clean <- births_clean %>%
   mutate(m19_cat = case_when(
     m19 <= 2500 ~ "<= 2500",
@@ -366,6 +367,17 @@ round(svytable(~contra_future + v025, design = dhs, na.action = na.pass)/1e6,0) 
 births_clean$neo_mort <- factor(births_clean$neo_mort)
 levels(births_clean$neo_mort) #Checking levels of outcome 
 
+#####  DATA CLEANING / PREPARATION #####  
+
+#Post natal check - m70
+# Replace "NA" and "8" with 0
+births_clean$m70[is.na(births_clean$m70)] <- 0
+births_clean$m70 <- ifelse(births_clean$m70 == 8, 0, births_clean$m70)
+count(births_clean$m70)
+table(births_clean$m70)
+
+
+
 #Setting up survey package 
 births_clean$wt <- births_clean$v005/1000000
 
@@ -374,20 +386,9 @@ design <- survey::svydesign(id=~v001,
                             weights=~wt,
                             data= births_clean)
 
-#Neo_mort
-births_clean$neo_mort <- factor(births_clean$neo_mort, levels = c("No", "Yes"), labels = c(0, 1))
-
 #1. Post natal check (m70)
 unique(births_clean$m70) 
-
-# Replace "NA" and "8" with 0
-births_clean$m70[is.na(births_clean$m70)] <- 0
-births_clean$m70 <- ifelse(births_clean$m70 == 8, 0, births_clean$m70)
-count(births_clean$m70)
-
-levels(births_clean$m70) #Checking levels of outcome  
-
-count(births_clean$neo_mort)
+factor(births_clean$m70) %>% levels() #Checking levels of outcome  
 count(births_clean$m70)
 
 model_m70 <- svyglm(neo_mort ~ factor(m70), 
@@ -446,6 +447,7 @@ print(summary(model_m19)$coefficients[2,"Pr(>|t|)"]) %>% round(2)
 #5. Delivery by C section  (m17) 
 mode(births_clean$m17)
 as.factor(births_clean$m17) %>% levels()
+sum(is.na(births_clean$m17))
 
 model_m17 <- svyglm(neo_mort ~ factor(m17), 
                    design = design, 
@@ -573,5 +575,22 @@ print(exp(coef(model_v445)[2])) %>% round(2)
 print (exp (confint(model_v445)[2, ])) %>% round(2)
 print(summary(model_v445)$coefficients[2,"Pr(>|t|)"]) %>% round(2)
 
+##################### MULTIVARIATE ANALYSIS #####################
+
+#Labour model 
+class(births_clean$neo_mort)
+
+modelm_2 <- svyglm(neo_mort ~ factor(v025) + 
+                  factor(m17) + m19 + b20,
+                  design = design, family = quasibinomial(), na.action = na.omit)
+
+print (exp (coef(modelm_2)))
+print (exp (confint(modelm_2)))
+print (summary(modelm_2)$coefficients[,"Pr(>|t|)"])
+
+#Pregnancy + Labour model 
+modelm_2 <- svyglm(neo_mort ~ factor(v025) + 
+                     factor(m17) + m19 + b20 +  as.factor(s1125) + m14 + v201,
+                   design = design, family = quasibinomial(), na.action = na.omit)
 
 
