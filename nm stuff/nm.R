@@ -88,8 +88,13 @@ births_last3years$m19 <- as.numeric(births_last3years$m19)
 births_last3years <- births_last3years %>%
   mutate(m19 = ifelse(m19 %in% c(9996, 9998), NA, m19))
 
-##divide bmi v445 by 100 and 9998 as flagged
-births_last3years$v445 <- as.numeric(births_last3years$v445)/100
+births_last3years <- births_last3years %>% mutate(
+  m19 = case_when(
+    m19 <2500 ~ "lowbw",
+    m19 >=2500 ~ "notlowbw",
+    TRUE ~ NA_character_ 
+  )
+)
 
 ##catagorise ANC to 0, 1-3, 4-6, 7+ (m14)? can change this!
 births_last3years<- births_last3years %>%
@@ -101,6 +106,29 @@ births_last3years<- births_last3years %>%
       TRUE ~ NA_character_  # For any other cases, set to NA
   ))
 
+##catagorise BMI Underweight <18.5, Normal 18.5-24.9, overweight 25-29.9, obese 30+
+
+##divide bmi v445 by 100 and 9998 as flagged as probably incorrect calcuation - will set to NA
+births_last3years$v445 <- as.numeric(births_last3years$v445)/100
+
+births_last3years <- births_last3years %>% mutate(
+  v445 = case_when(
+    v445 < 18.5 ~ "Underweight",
+    (18.5 <= v445 & v445 < 25) ~ "Normal",
+    (25 <= v445 & v445 < 30) ~ "Overweight",
+    v445 >= 30 ~ "Obese",
+    TRUE ~ NA_character_
+  )
+)
+
+######b20 gestation at bith recode
+births_last3years <- births_last3years %>% mutate(
+  b20 = case_when(
+    b20 < 8 ~ "preterm",
+    b20 >= 8 ~"fullterm",
+    TRUE ~ NA
+  )
+)
 
 ##remove uneeded recoded variables
 births_clean <- births_last3years %>% 
@@ -139,18 +167,19 @@ proportions(tbl, margin = 2)
 
 #see DHS weighted statistics, need to divide by 1000000
 births_clean$wt <- births_clean$v005/1000000
-births_clean <- births_clean %>%
-  mutate(urban_rural = factor(v025, levels = c(1, 2), labels = c("Urban", "Rural")))
+#births_clean <- births_clean %>%
+ # mutate(urban_rural = factor(v025, levels = c(1, 2), labels = c("Urban", "Rural")))
 
 
 ##using survey package
 ##create survey design to use in survey package calculations
 ## i used v001 for cluster id, but noticed Soe used v021, not sure what the difference is
 
-all_weighted <- survey::svydesign(id=~v001, 
-                      strata =~v023, 
-                      weights=~wt,
-                      data= births_clean)
+
+design <- survey::svydesign(id=~v001, 
+                            strata =~v023, 
+                            weights=~wt,
+                            data= births_clean)
 
 ##used plyr as this example was in the DHS statistic manual
 ##however they used survey package for more complex stats which is what we will need
@@ -376,6 +405,100 @@ svyhist(~v245, NM)
 svyhist(~v245, survived)
 
 
+##################################################################################################################################################
+##########To add to Nikki code###########################################################
+##wealth index combined v190####################################################################################################
+#####design name is different and urban rural not re factored##########################################################################
 
-##wealth v190a
 
+unique(births_clean$v190)
+count(births_clean$v190)/5619
+
+
+
+count(births_clean$v190[births_clean$v025 == 1]) #Urban
+count(births_clean$v190[births_clean$v025 == 2]) #Rural
+
+round(prop.table(svytable(~ v190 + v025, design = design) ,margin = 2) *100, 2)
+
+########################################################################################################
+####marital status v501
+########################################################################
+
+unique(births_clean$v501)
+count(births_clean$v501)/5619
+
+
+
+count(births_clean$v501[births_clean$v025 == 1]) #Urban
+count(births_clean$v501[births_clean$v025 == 2]) #Rural
+
+round(prop.table(svytable(~ v501 + v025, design = design) ,margin = 2) *100, 2)
+
+#################################################################################################
+#########################smoking v63aa##########################################
+#########################################################
+
+
+unique(births_clean$v463aa)
+count(births_clean$v463aa)/5619
+
+
+
+count(births_clean$v463aa[births_clean$v025 == 1]) #Urban
+count(births_clean$v463aa[births_clean$v025 == 2]) #Rural
+
+round(prop.table(svytable(~ v463aa + v025, design = design) ,margin = 2) *100, 2)
+
+
+########BMI######################################################################################
+###v445################################
+
+
+unique(births_clean$v445)
+count(births_clean$v445)$freq/5619
+
+
+
+count(births_clean$v445[births_clean$v025 == 1]) #Urban
+count(births_clean$v445[births_clean$v025 == 2]) #Rural
+
+round(prop.table(svytable(~ v445 + v025, design = design) ,margin = 2) *100, 2)
+
+####assistance at delivery#########################################################################################################################################
+##############senior person attednign
+
+unique(births_clean$senior_delivery_attendant)
+count(births_clean$senior_delivery_attendant)$freq/5619
+
+
+
+count(births_clean$senior_delivery_attendant[births_clean$v025 == 1]) #Urban
+count(births_clean$senior_delivery_attendant[births_clean$v025 == 2]) #Rural
+
+round(prop.table(svytable(~ senior_delivery_attendant + v025, design = design) ,margin = 2) *100, 2)
+
+
+#####preterm b20#######################################################################
+unique(births_clean$b20)
+count(births_clean$b20)#$freq/5619
+
+
+
+count(births_clean$b20[births_clean$v025 == 1]) #Urban
+count(births_clean$b20[births_clean$v025 == 2]) #Rural
+
+round(prop.table(svytable(~ b20 + v025, design = design) ,margin = 2) *100, 2)
+
+
+#################################bw m19
+
+unique(births_clean$m19)
+count(births_clean$m19)$freq/5619
+
+
+
+count(births_clean$m19[births_clean$v025 == 1]) #Urban
+count(births_clean$m19[births_clean$v025 == 2]) #Rural
+
+round(prop.table(svytable(~ m19 + v025, design = design) ,margin = 2) *100, 2)
