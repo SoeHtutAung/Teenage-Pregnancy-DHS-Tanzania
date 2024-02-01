@@ -383,8 +383,6 @@ count(births_clean$m19[births_clean$v025 == 2]) #Rural
 round(prop.table(svytable(~ m19 + v025, design = design) ,margin = 2) *100, 2)
 
 
-
-
 ############### Checking for missingness for table 2 regression ####################
 
 # Checking initial numbers 
