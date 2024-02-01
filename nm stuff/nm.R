@@ -427,9 +427,17 @@ NM_variables <- readLines("/Users/nikkiyu/Downloads/2 Data Challenge/unicef/nm s
 
 ##FILTER DATA BY VARIABLE CODES
 ##use txt file of codes to filter births dataset
-births_subset <- births_BR %>% select(all_of(NM_variables))
+selected_vars <- c(
+  "caseid", "bidx", "v023", "v025", "v001", "v002", "v005", "v012", "v011", "v008",
+  "b3", "b0", "b11", "b12", "b20", "b4", "b5", "b6", "b7", "m13", "m14", "m15", "m17",
+  "m19", "m3a", "m3b", "m3c", "m3d", "m3e", "m3f", "m3g", "m3h", "m3i", "m3k", "m3n",
+  "m45", "m66", "m70", "s1125", "v190", "v457", "v011", "v456", "v155", "v201", "v245",
+  "v445", "v463aa", "v485a", "v501"
+)
 
-
+births_subset <- births_BR %>%
+  dplyr::select(all_of(selected_vars)) %>%
+  dplyr::mutate(v024 = births_BR$v024)
 
 ##CREATE NEW VARS
 ##mum_age_pregancy = mum dob - baby dob
@@ -449,8 +457,8 @@ summary(births_last3years)
 
 ##NEW VAR FOR NEONATAL MORTALITY
 births_last3years <- births_last3years %>%
-  mutate(neo_mort = ifelse(is.na(b6) | b6 > 130, "NO", "Yes"),
-         age_at_death_days = ifelse(neo_mort == "Yes", b6 %% 100, NA))
+  mutate(neo_mort = ifelse(is.na(b6) | b6 > 130, 0, 1),
+         age_at_death_days = ifelse(neo_mort == 1, b6 %% 100, NA))
 
 ##RECODE DELIVERY ASSISTANT COLUMNS
 ##combine the columns m3a-m3n (assistant at delivery) into one column with factors
@@ -489,7 +497,7 @@ births_last3years <- births_last3years %>%
   mutate(m19 = ifelse(m19 %in% c(9996, 9998), NA, m19))
 
 births_last3years <- births_last3years %>% mutate(
-  m19 = case_when(
+  m19_cat = case_when(
     m19 <2500 ~ "lowbw",
     m19 >=2500 ~ "notlowbw",
     TRUE ~ NA_character_ 
@@ -536,13 +544,34 @@ births_last3years<- births_last3years %>%
     TRUE ~ NA_character_  # For any other cases, set to NA
   ))
 
+births_last3years <- births_last3years %>%
+  mutate(m14 = case_when(
+    m14 %in% c(0, 98, NA) ~ 0,
+    m14 == 1 ~ 1,
+    m14 == 2 ~ 2,
+    m14 == 3 ~ 3,
+    m14 == 4 ~ 4,
+    m14 == 5 ~ 5,
+    m14 == 6 ~ 6,
+    m14 == 7 ~ 7,
+    m14 == 8 ~ 8,
+    m14 == 9 ~ 9,
+    m14 == 10 ~ 10,
+    m14 == 11 ~ 11,
+    m14 == 12 ~ 12,
+    m14 == 13 ~ 13,
+    m14 == 14 ~ 14,
+    m14 == 15 ~ 15,
+    m14 == 16 ~ 16
+  ))
+
 ##catagorise BMI Underweight <18.5, Normal 18.5-24.9, overweight 25-29.9, obese 30+
 
 ##divide bmi v445 by 100 and 9998 as flagged as probably incorrect calcuation - will set to NA
 births_last3years$v445 <- as.numeric(births_last3years$v445)/100
 
 births_last3years <- births_last3years %>% mutate(
-  v445 = case_when(
+  v445_cat = case_when(
     v445 < 18.5 ~ "Underweight",
     (18.5 <= v445 & v445 < 25) ~ "Normal",
     (25 <= v445 & v445 < 30) ~ "Overweight",
@@ -553,7 +582,7 @@ births_last3years <- births_last3years %>% mutate(
 
 ######b20 gestation at bith recode
 births_last3years <- births_last3years %>% mutate(
-  b20 = case_when(
+  b20_cat = case_when(
     b20 <= 8 ~ "preterm",
     b20 > 8 ~"fullterm",
     TRUE ~ NA
@@ -572,9 +601,9 @@ births_last3years <- births_last3years %>%
 
 ##remove uneeded recoded variables
 births_clean <- births_last3years %>% 
-  select(-v011, -v008, -b3, -m3a, -m3b, -m3c, -m3d
-         , -m3e, -m3f, -m3g, -m3h, -m3i, -m3k, -m3n
-         , - test, -v012, -b6, -b7, -m14)
+  dplyr::select(-v011, -v008, -b3, -m3a, -m3b, -m3c, -m3d
+                , -m3e, -m3f, -m3g, -m3h, -m3i, -m3k, -m3n
+                , - test, -v012, -b6, -b7)
 
 ##reorder dataframe
 # births_clean <- births_clean %>%
@@ -747,7 +776,7 @@ count(births_clean$v501[births_clean$v025 == 1]) #Urban
 count(births_clean$v501[births_clean$v025 == 2]) #Rural
 round(prop.table(svytable(~ v501 + v025, design = design) ,margin = 2) *100, 2)
 
-#17.smoking v63aa
+#17.smoking v463aa
 unique(births_clean$v463aa)
 count(births_clean$v463aa)/5619
 count(births_clean$v463aa[births_clean$v025 == 1]) #Urban
@@ -784,8 +813,6 @@ count(births_clean$m19)$freq/5619
 count(births_clean$m19[births_clean$v025 == 1]) #Urban
 count(births_clean$m19[births_clean$v025 == 2]) #Rural
 round(prop.table(svytable(~ m19 + v025, design = design) ,margin = 2) *100, 2)
-
-
 
 
 ############### Checking for missingness for table 2 regression ####################
@@ -873,12 +900,63 @@ design <- survey::svydesign(id=~v001,
 model_v025 <- svyglm(neo_mort ~ factor(v025),
                      design, family = quasibinomial())
 
-print (exp (coef(model_v025)[2]))
-print (exp (confint(model_v025)[2, ]))
-print (summary(model_v025)$coefficients[2,"Pr(>|t|)"])
+print (exp (coef(model_v025)[2])) %>% round(2)
+print (exp (confint(model_v025)[2, ])) %>% round(2)
+print (summary(model_v025)$coefficients[2,"Pr(>|t|)"]) %>% round(2)
 
 
 
 ####1.age#######
 sum(is.na(births_clean$mum_age_pregnancy)) ##no NAs
+model_age <- svyglm(neo_mort ~ mum_age_pregnancy,
+                     design, family = quasibinomial(), na.action = na.exclude)
+print (exp (coef(model_age)[2])) %>% round(2)
+print (exp (confint(model_age)[2, ])) %>% round(2)
+print (summary(model_age)$coefficients[2,"Pr(>|t|)"]) %>% round(2)
+
+
+##2. Education######
+##check levels
+as.factor(births_clean$v155)
+##run glm
+model_edu <- svyglm(neo_mort ~ factor(v155),
+                    design, family = quasibinomial(), na.action = na.exclude)
+print (exp (coef(model_edu)))%>% round(2)
+print (exp (confint(model_edu)))%>% round(2)
+print (summary(model_edu)$coefficients[,"Pr(>|t|)"])%>% round(2)
+
+##3.Marital status
+##check levels
+levels(as.factor(births_clean$v501))
+model_marital <- svyglm(neo_mort ~ factor(v501),
+                        design, family = quasibinomial(), na.action = na.exclude)
+print (exp (coef(model_marital))) %>% round(2)
+print (exp (confint(model_marital))) %>% round(2)
+print (summary(model_marital)$coefficients[,"Pr(>|t|)"]) %>% round(2)
+
+#4.Smoking##
+##check levels
+levels(as.factor(births_clean$v463aa))
+model_smoke <- svyglm(neo_mort ~ factor(v463aa),
+                        design, family = quasibinomial(), na.action = na.exclude)
+print (exp (coef(model_smoke))) %>% round(2)
+print (exp (confint(model_smoke))) %>% round(2)
+print (summary(model_smoke)$coefficients[,"Pr(>|t|)"]) %>% round(2)
+
+#5.BMI##
+##issue with missing values
+model_bmi <- svyglm(neo_mort ~ v445,
+                      design, family = quasibinomial(), na.action = na.omit)
+print (exp (coef(model_bmi)[2])) %>% round(2)
+print (exp (confint(model_bmi)[2, ])) %>% round(2)
+print (summary(model_bmi)$coefficients[2,"Pr(>|t|)"]) %>% round(2)
+
+#6.ANC visits
+sum(is.na(births_clean$m14))
+##424 NAs but DHS statistics says to include as NO
+model_anc <- svyglm(neo_mort ~ m14,
+                    design, family = quasibinomial())
+print (exp (coef(model_anc)[2])) %>% round(2)
+print (exp (confint(model_anc)[2, ])) %>% round(2)
+print (summary(model_anc)$coefficients[2,"Pr(>|t|)"]) %>% round(2)
 
