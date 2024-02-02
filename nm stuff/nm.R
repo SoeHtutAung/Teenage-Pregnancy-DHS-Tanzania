@@ -414,16 +414,18 @@ library(haven)
 library(survey)
 library(tidyverse)
 library(plyr)
+library(sf)
+library(ggsci)
 
 
 #######LOAD DATA
 ##read births data set
-births_BR <- read_dta("TZBR82FL.DTA")
-births_BR <- read_dta("~/Downloads/UNICEF DATA/Births/TZBR82FL.DTA") # for nikki 
+births_BR <- read_dta("C:/Users/Saund/OneDrive - London School of Hygiene and Tropical Medicine/TZDHS/Survey Data/Births/TZBR82FL.DTA")
+#births_BR <- read_dta("~/Downloads/UNICEF DATA/Births/TZBR82FL.DTA") # for nikki 
 
 ##load txt file with variable codes from code list
-NM_variables <- readLines("NM_variables.txt")
-NM_variables <- readLines("/Users/nikkiyu/Downloads/2 Data Challenge/unicef/nm stuff/NM_variables.txt") #for nikki
+#NM_variables <- readLines("NM_variables.txt")
+#NM_variables <- readLines("/Users/nikkiyu/Downloads/2 Data Challenge/unicef/nm stuff/NM_variables.txt") #for nikki
 
 ##FILTER DATA BY VARIABLE CODES
 ##use txt file of codes to filter births dataset
@@ -784,11 +786,11 @@ round(prop.table(svytable(~ v463aa + v025, design = design) ,margin = 2) *100, 2
 
 
 #18.BMI - v445################################
-unique(births_clean$v445)
-count(births_clean$v445)$freq/5619
-count(births_clean$v445[births_clean$v025 == 1]) #Urban
-count(births_clean$v445[births_clean$v025 == 2]) #Rural
-round(prop.table(svytable(~ v445 + v025, design = design) ,margin = 2) *100, 2)
+unique(births_clean$v445_cat)
+count(births_clean$v445_cat)$freq/5619
+count(births_clean$v445_cat[births_clean$v025 == 1]) #Urban
+count(births_clean$v445_cat[births_clean$v025 == 2]) #Rural
+round(prop.table(svytable(~ v445_cat + v025, design = design) ,margin = 2) *100, 2)
 
 #19.assistance at delivery - senior person attednign
 unique(births_clean$senior_delivery_attendant)
@@ -799,19 +801,19 @@ attendant <- round(prop.table(svytable(~ senior_delivery_attendant + v025, desig
 
 
 #20. preterm b20#
-unique(births_clean$b20)
-count(births_clean$b20)#$freq/5619
-count(births_clean$b20[births_clean$v025 == 1]) #Urban
-count(births_clean$b20[births_clean$v025 == 2]) #Rural
-round(prop.table(svytable(~ b20 + v025, design = design) ,margin = 2) *100, 2)
+unique(births_clean$b20_cat)
+count(births_clean$b20_cat)#$freq/5619
+count(births_clean$b20_cat[births_clean$v025 == 1]) #Urban
+count(births_clean$b20_cat[births_clean$v025 == 2]) #Rural
+round(prop.table(svytable(~ b20_cat + v025, design = design) ,margin = 2) *100, 2)
 
 
 #21.bw m19
-unique(births_clean$m19)
-count(births_clean$m19)$freq/5619
-count(births_clean$m19[births_clean$v025 == 1]) #Urban
-count(births_clean$m19[births_clean$v025 == 2]) #Rural
-round(prop.table(svytable(~ m19 + v025, design = design) ,margin = 2) *100, 2)
+unique(births_clean$m19_cat)
+count(births_clean$m19_cat)$freq/5619
+count(births_clean$m19_cat[births_clean$v025 == 1]) #Urban
+count(births_clean$m19_cat[births_clean$v025 == 2]) #Rural
+round(prop.table(svytable(~ m19_cat + v025, design = design) ,margin = 2) *100, 2)
 
 
 ############### Checking for missingness for table 2 regression ####################
@@ -966,9 +968,9 @@ modelm_preg <- svyglm(neo_mort ~ factor(v025) +
                      as.factor(s1125) + m14 + v201,
                    design, family = quasibinomial(), na.action = na.exclude)
 
-print (exp (coef(modelm_1)))
-print (exp (confint(modelm_1)))
-print (summary(modelm_1)$coefficients[,"Pr(>|t|)"])
+print (exp (coef(modelm_preg)))
+print (exp (confint(modelm_preg)))
+print (summary(modelm_preg)$coefficients[,"Pr(>|t|)"])
 
 modelm_preg_labour <-  svyglm(neo_mort ~ factor(v025) + 
                        as.factor(s1125) + m14 + v201 +
@@ -976,9 +978,9 @@ modelm_preg_labour <-  svyglm(neo_mort ~ factor(v025) +
                      design = design, family = quasibinomial(), na.action=na.omit)
 
 
-print (exp (coef(modelm_12)))
-print (exp (confint(modelm_12)))
-print (summary(modelm_12)$coefficients[,"Pr(>|t|)"])
+print (exp (coef(modelm_preg_labour)))
+print (exp (confint(modelm_preg_labour)))
+print (summary(modelm_preg_labour)$coefficients[,"Pr(>|t|)"])
 
 
 #####Data visualizations - contextual######
@@ -999,3 +1001,76 @@ ggplot(data= as.data.frame(literacy) , aes(x=v025, y=Freq, fill=v155)) +
 ##4. wealth
 ggplot(data= as.data.frame(wealth) , aes(x=v025, y=Freq, fill=v190)) +
   geom_bar(stat="identity")
+
+
+##maps############################################################
+
+#read the shp provided by the dhs, but seems useless----------
+map_point <- st_read("C:/Users/Saund/OneDrive - London School of Hygiene and Tropical Medicine/TZDHS/Geospatial Data/TZGE81FL/TZGE81FL.shp")
+#read the shp of Tanzania----------
+map_region <- st_read("C:/Users/Saund/OneDrive/MSc_HDS_2022/Data Challenge/tza_admbnda_adm1_20181019/tza_admbnda_adm1_20181019.shp")
+#add the maping data to map_region----------
+
+
+##this map shows the rates of csection by region###############################################
+delivery_section <- round(prop.table(svytable(~ m17 + v024, design = design) ,margin = 2) *100, 2)
+map_region$delivery  <- delivery_section[2,]
+
+ggplot(data = map_region) + 
+  #add the regions' layers
+  geom_sf(aes(fill = delivery), size = 1.5, color = "black") + 
+  #add the label of each region
+  geom_sf_text(aes(label = ADM1_EN), size = 2.5) +
+  #add the point for each, seems the sampling clusers, but I'm not sure
+  #geom_sf(data = map_point , size = 1.5, color = "black") + 
+  scale_fill_gradient2(name = "Percentage (%)",
+                       limits = c(0, 40),
+                       #breaks = seq(from = 0, to = 100, by = 10),
+                       low = pal_nejm("default")(8)[7], 
+                       high = pal_nejm("default")(8)[1],
+                       na.value = "grey75") + 
+  ggtitle("Percentage of births delivered by c-sections by Region (%)") + 
+  theme(axis.title = element_blank())
+
+
+####this map shows rates of lowbw by region #############################
+bw_region <- round(prop.table(svytable(~ m19_cat + v024, design = design) ,margin = 2) *100, 2)
+map_region$lowbw <- bw_region[1,]
+
+ggplot(data = map_region) + 
+  #add the regions' layers
+  geom_sf(aes(fill = lowbw), size = 1.5, color = "black") + 
+  #add the label of each region
+  geom_sf_text(aes(label = ADM1_EN), size = 2.5) +
+  #add the point for each, seems the sampling clusers, but I'm not sure
+  #geom_sf(data = map_point , size = 1.5, color = "black") + 
+  scale_fill_gradient2(name = "Percentage (%)",
+                       limits = c(0, 18),
+                       #breaks = seq(from = 0, to = 100, by = 10),
+                       low = pal_nejm("default")(8)[7], 
+                       high = pal_nejm("default")(8)[1],
+                       na.value = "grey75") + 
+  ggtitle("Percentage of births with low birthweight by Region (%)") + 
+  theme(axis.title = element_blank())
+
+
+###hypertension rates############################################################ 
+
+hyp_region <- round(prop.table(svytable(~ s1125 + v024, design = design) ,margin = 2) *100, 2)
+map_region$hyp <- hyp_region[2,]
+
+ggplot(data = map_region) + 
+  #add the regions' layers
+  geom_sf(aes(fill = hyp), size = 1.5, color = "black") + 
+  #add the label of each region
+  geom_sf_text(aes(label = ADM1_EN), size = 2.5) +
+  #add the point for each, seems the sampling clusers, but I'm not sure
+  #geom_sf(data = map_point , size = 1.5, color = "black") + 
+  scale_fill_gradient2(name = "Percentage (%)",
+                       limits = c(0, 20),
+                       #breaks = seq(from = 0, to = 100, by = 10),
+                       low = pal_nejm("default")(8)[7], 
+                       high = pal_nejm("default")(8)[1],
+                       na.value = "grey75") + 
+  ggtitle("Percentage of births where mother has had hypertension by Region (%)") + 
+  theme(axis.title = element_blank())
