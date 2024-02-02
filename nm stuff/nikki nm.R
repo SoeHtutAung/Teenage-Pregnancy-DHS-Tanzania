@@ -334,7 +334,7 @@ round(svytable(~age_at_death_days + v025, design = design, na.action = na.pass)/
 # No records for age of death with urban and rural split
 
 #m13 - timing of 1st antenatal check 
-table(births_clean$m13, births_clean$neo_mort, useNA = "always")
+table(births_clean$m13, births_clean$neo_mort, useNA = "always") %>% prop.table(margin = 1)
 #Most records are in 'no' neo_mort but there are some in 'yes' neo_mort, NAs in 'Yes' neo_mort is small but 50% of all yes records.
 #"Don't know" or missing values on number of antenatal care visits and timing of first ANC are excluded from numerators but included in denominators.
 
@@ -585,6 +585,15 @@ modelm_labour <- svyglm(neo_mort ~ factor(v025) +
 print (exp (coef(modelm_labour)))
 print (exp (confint(modelm_labour)))
 print (summary(modelm_labour)$coefficients[,"Pr(>|t|)"])
+
+#Pregnancy model 
+modelm_1 <- svyglm(neo_mort ~ factor(v025) + 
+                     as.factor(s1125) + m14 + v201,
+                   design, family = quasibinomial(), na.action = na.exclude)
+
+print (exp (coef(modelm_1)))
+print (exp (confint(modelm_1)))
+print (summary(modelm_1)$coefficients[,"Pr(>|t|)"])
 
 #Labour + Pregnancy model 
 modelm_labour_preg <- svyglm(neo_mort ~ factor(v025) + 
