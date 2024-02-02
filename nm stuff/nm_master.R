@@ -3,16 +3,18 @@ library(haven)
 library(survey)
 library(tidyverse)
 library(plyr)
+library(sf)
+library(ggsci)
 
 
 #######LOAD DATA
 ##read births data set
-births_BR <- read_dta("TZBR82FL.DTA")
-births_BR <- read_dta("~/Downloads/UNICEF DATA/Births/TZBR82FL.DTA") # for nikki 
+#births_BR <- read_dta("C:/Users/Saund/OneDrive - London School of Hygiene and Tropical Medicine/TZDHS/Survey Data/Births/TZBR82FL.DTA")
+#births_BR <- read_dta("~/Downloads/UNICEF DATA/Births/TZBR82FL.DTA") # for nikki 
 
 ##load txt file with variable codes from code list
-NM_variables <- readLines("NM_variables.txt")
-NM_variables <- readLines("/Users/nikkiyu/Downloads/2 Data Challenge/unicef/nm stuff/NM_variables.txt") #for nikki
+#NM_variables <- readLines("NM_variables.txt")
+#NM_variables <- readLines("/Users/nikkiyu/Downloads/2 Data Challenge/unicef/nm stuff/NM_variables.txt") #for nikki
 
 ##FILTER DATA BY VARIABLE CODES
 ##use txt file of codes to filter births dataset
@@ -117,23 +119,20 @@ births_last3years <- births_last3years %>%
     mum_age_pregnancy < 20 ~ "<20",
     mum_age_pregnancy >= 20 & mum_age_pregnancy < 25 ~ "20-24",
     mum_age_pregnancy >= 25 & mum_age_pregnancy < 35 ~ "25-34",
-    mum_age_pregnancy >= 35 & mum_age_pregnancy < 45 ~ "35-44",
-    mum_age_pregnancy >= 45 ~ "45-49",
+    mum_age_pregnancy >= 35  ~ "35+",
     TRUE ~ as.character(NA) # default case to return NA for values that don't fit any of the above conditions
   ))
 
 
-##catagorise ANC to 0, 1-3, 4-6, 7+ (m14)? can change this!
+##catagorise ANC to 0, 1-3, 4+
 births_last3years<- births_last3years %>%
   mutate(ANC_visits = case_when(
     m14 == 0 ~ "None",
     between(m14, 1, 3) ~ "1-3",
-    between(m14, 4, 6) ~ "4-6",
-    m14 >= 7 ~ "7+",
+    m14 >= 4 ~ "4+",
     TRUE ~ NA_character_  # For any other cases, set to NA
   ))
 
-##sort for the continuos variable for the bivariate analsis as per DHS stats
 births_last3years <- births_last3years %>%
   mutate(m14 = case_when(
     m14 %in% c(0, 98, NA) ~ 0,
@@ -153,6 +152,16 @@ births_last3years <- births_last3years %>%
     m14 == 14 ~ 14,
     m14 == 15 ~ 15,
     m14 == 16 ~ 16
+  ))
+
+####marital status
+
+births_last3years<- births_last3years %>%
+  mutate(v501_cat = case_when(
+    v501 == 0 ~ "Never Union",
+    between(v501, 1, 2) ~ "Married/living with partner",
+    v501 >= 3 ~ "Divorced/Widowed or Seperated",
+    TRUE ~ NA_character_  # For any other cases, set to NA
   ))
 
 ##catagorise BMI Underweight <18.5, Normal 18.5-24.9, overweight 25-29.9, obese 30+
@@ -192,8 +201,8 @@ births_last3years <- births_last3years %>%
 ##remove uneeded recoded variables
 births_clean <- births_last3years %>% 
   dplyr::select(-v011, -v008, -b3, -m3a, -m3b, -m3c, -m3d
-         , -m3e, -m3f, -m3g, -m3h, -m3i, -m3k, -m3n
-         , - test, -v012, -b6, -b7)
+                , -m3e, -m3f, -m3g, -m3h, -m3i, -m3k, -m3n
+                , - test, -v012, -b6, -b7)
 
 ##reorder dataframe
 # births_clean <- births_clean %>%
@@ -214,8 +223,6 @@ dict_births_BR <- data.frame(
   variable = variable_names_BR_clean,
   description = variable_labels_BR_clean
 )
-
-
 
 ######################## NIKKI SECTION - TABLE 1 CONTEXT ######################## 
 #Setting up survey package 
@@ -255,7 +262,7 @@ count(births_clean$ANC_visits[births_clean$v025 == 2]) #Rural
 
 round(prop.table(svytable(~ ANC_visits + v025, design = design) ,margin = 2) *100, 2)
 
-#4. Number of pregnancies in pregnancy intervals - IGNORE
+#4. Number of pregnancies in pregnancy intervals
 
 #5. Number of pregnancies by mulitplicity of mothers (v201) 
 
@@ -267,10 +274,10 @@ count_df$percentage <- round((count_df$freq / 5619) * 100,2)
 print(count_df)
 
 #By urban/rural (n)
-count(births_clean$v201[births_clean$v025 == 1]) #Urban
-count(births_clean$v201[births_clean$v025 == 2]) #Rural
+count(births_clean$v201_cat[births_clean$v025 == 1]) #Urban
+count(births_clean$v201_cat[births_clean$v025 == 2]) #Rural
 
-round(prop.table(svytable(~ v201_cat + v025, design = design) ,margin = 2) *100, 2)
+no_pregnancies <- round(prop.table(svytable(~ v201_cat + v025, design = design) ,margin = 2) *100, 2)
 
 #6. Mum age at pregnancy (mum_age_pregnancy)
 count_df <- count(births_clean$mum_age_pregnancy)
@@ -288,7 +295,7 @@ count_df$percentage <- (count_df$freq / 5619) * 100
 print(count_df)
 
 
-round(prop.table(svytable(~ v155 + v025, design = design) ,margin = 2) *100, 2)
+literacy <- round(prop.table(svytable(~ v155 + v025, design = design) ,margin = 2) *100, 2)
 
 #By urban/rural (n)
 count(births_clean$v155[births_clean$v025 == 1]) #Urban
@@ -302,12 +309,11 @@ print(count_df)
 
 #By urban/rural (n)
 
-#######################this doesnt look right - i updated it###########need to check if tables needs to be updated################
+
 count(births_clean$v245_cat[births_clean$v025 == 1]) #Urban
 count(births_clean$v245_cat[births_clean$v025 == 2]) #Rural
 
 
-###v245_cat not added to the design?
 round(prop.table(svytable(~ v245_cat + v025, design = design) ,margin = 2) *100, 2)
 
 
@@ -358,17 +364,17 @@ unique(births_clean$v190)
 count(births_clean$v190)/5619
 count(births_clean$v190[births_clean$v025 == 1]) #Urban
 count(births_clean$v190[births_clean$v025 == 2]) #Rural
-round(prop.table(svytable(~ v190 + v025, design = design) ,margin = 2) *100, 2)
+wealth <- round(prop.table(svytable(~ v190 + v025, design = design) ,margin = 2) *100, 2)
 
 
 #16.marital status v501
-unique(births_clean$v501)
-count(births_clean$v501)/5619
-count(births_clean$v501[births_clean$v025 == 1]) #Urban
-count(births_clean$v501[births_clean$v025 == 2]) #Rural
-round(prop.table(svytable(~ v501 + v025, design = design) ,margin = 2) *100, 2)
+unique(births_clean$v501_cat)
+count(births_clean$v501_cat)/5619
+count(births_clean$v501_cat[births_clean$v025 == 1]) #Urban
+count(births_clean$v501_cat[births_clean$v025 == 2]) #Rural
+round(prop.table(svytable(~ v501_cat + v025, design = design) ,margin = 2) *100, 2)
 
-#17.smoking v63aa
+#17.smoking v463aa
 unique(births_clean$v463aa)
 count(births_clean$v463aa)/5619
 count(births_clean$v463aa[births_clean$v025 == 1]) #Urban
@@ -388,15 +394,15 @@ unique(births_clean$senior_delivery_attendant)
 count(births_clean$senior_delivery_attendant)$freq/5619
 count(births_clean$senior_delivery_attendant[births_clean$v025 == 1]) #Urban
 count(births_clean$senior_delivery_attendant[births_clean$v025 == 2]) #Rural
-round(prop.table(svytable(~ senior_delivery_attendant + v025, design = design) ,margin = 2) *100, 2)
+attendant <- round(prop.table(svytable(~ senior_delivery_attendant + v025, design = design) ,margin = 2) *100, 2)
 
 
 #20. preterm b20#
-unique(births_clean$b20)
-count(births_clean$b20)#$freq/5619
-count(births_clean$b20[births_clean$v025 == 1]) #Urban
-count(births_clean$b20[births_clean$v025 == 2]) #Rural
-round(prop.table(svytable(~ b20 + v025, design = design) ,margin = 2) *100, 2)
+unique(births_clean$b20_cat)
+count(births_clean$b20_cat)#$freq/5619
+count(births_clean$b20_cat[births_clean$v025 == 1]) #Urban
+count(births_clean$b20_cat[births_clean$v025 == 2]) #Rural
+round(prop.table(svytable(~ b20_cat + v025, design = design) ,margin = 2) *100, 2)
 
 
 #21.bw m19
@@ -473,6 +479,7 @@ table(births_clean$v445, births_clean$neo_mort, useNA = "always")
 
 table(teendata$contra_current, teendata$contra_future, useNA = "always") # can't identify exact numbers
 round(svytable(~contra_future + v025, design = dhs, na.action = na.pass)/1e6,0) # this table is used to
+
 
 
 

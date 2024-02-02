@@ -530,19 +530,17 @@ births_last3years <- births_last3years %>%
     mum_age_pregnancy < 20 ~ "<20",
     mum_age_pregnancy >= 20 & mum_age_pregnancy < 25 ~ "20-24",
     mum_age_pregnancy >= 25 & mum_age_pregnancy < 35 ~ "25-34",
-    mum_age_pregnancy >= 35 & mum_age_pregnancy < 45 ~ "35-44",
-    mum_age_pregnancy >= 45 ~ "45-49",
+    mum_age_pregnancy >= 35  ~ "35+",
     TRUE ~ as.character(NA) # default case to return NA for values that don't fit any of the above conditions
   ))
 
 
-##catagorise ANC to 0, 1-3, 4-6, 7+ (m14)? can change this!
+##catagorise ANC to 0, 1-3, 4+
 births_last3years<- births_last3years %>%
   mutate(ANC_visits = case_when(
     m14 == 0 ~ "None",
     between(m14, 1, 3) ~ "1-3",
-    between(m14, 4, 6) ~ "4-6",
-    m14 >= 7 ~ "7+",
+    m14 >= 4 ~ "4+",
     TRUE ~ NA_character_  # For any other cases, set to NA
   ))
 
@@ -565,6 +563,16 @@ births_last3years <- births_last3years %>%
     m14 == 14 ~ 14,
     m14 == 15 ~ 15,
     m14 == 16 ~ 16
+  ))
+
+####marital status
+
+births_last3years<- births_last3years %>%
+  mutate(v501_cat = case_when(
+    v501 == 0 ~ "Never Union",
+    between(v501, 1, 2) ~ "Married/living with partner",
+    v501 >= 3 ~ "Divorced/Widowed or Seperated",
+    TRUE ~ NA_character_  # For any other cases, set to NA
   ))
 
 ##catagorise BMI Underweight <18.5, Normal 18.5-24.9, overweight 25-29.9, obese 30+
@@ -677,8 +685,8 @@ count_df$percentage <- round((count_df$freq / 5619) * 100,2)
 print(count_df)
 
 #By urban/rural (n)
-count(births_clean$v201[births_clean$v025 == 1]) #Urban
-count(births_clean$v201[births_clean$v025 == 2]) #Rural
+count(births_clean$v201_cat[births_clean$v025 == 1]) #Urban
+count(births_clean$v201_cat[births_clean$v025 == 2]) #Rural
 
 no_pregnancies <- round(prop.table(svytable(~ v201_cat + v025, design = design) ,margin = 2) *100, 2)
 
@@ -742,7 +750,7 @@ print(count_df)
 round(prop.table(svytable(~ b4 + v025, design = design) ,margin = 2) *100, 2)
 
 #12. Gestation at birth (b20)
-count_df <- count(births_clean$b20)
+count_df <- count(births_clean$b20_cat)
 count_df$percentage <- round((count_df$freq / 5619) * 100,2)
 print(count_df)
 
@@ -771,11 +779,11 @@ wealth <- round(prop.table(svytable(~ v190 + v025, design = design) ,margin = 2)
 
 
 #16.marital status v501
-unique(births_clean$v501)
-count(births_clean$v501)/5619
-count(births_clean$v501[births_clean$v025 == 1]) #Urban
-count(births_clean$v501[births_clean$v025 == 2]) #Rural
-round(prop.table(svytable(~ v501 + v025, design = design) ,margin = 2) *100, 2)
+unique(births_clean$v501_cat)
+count(births_clean$v501_cat)/5619
+count(births_clean$v501_cat[births_clean$v025 == 1]) #Urban
+count(births_clean$v501_cat[births_clean$v025 == 2]) #Rural
+round(prop.table(svytable(~ v501_cat + v025, design = design) ,margin = 2) *100, 2)
 
 #17.smoking v463aa
 unique(births_clean$v463aa)
@@ -961,6 +969,8 @@ print (exp (coef(model_anc)[2])) %>% round(2)
 print (exp (confint(model_anc)[2, ])) %>% round(2)
 print (summary(model_anc)$coefficients[2,"Pr(>|t|)"]) %>% round(2)
 
+
+
 ##### model 1 then 2 #######
 ##pregancy factors then add the labour factors
 
@@ -1095,3 +1105,33 @@ ggplot(data = map_region) +
                        na.value = "grey75") + 
   ggtitle("Percentage of births where mother has had obesity by Region (%)") + 
   theme(axis.title = element_blank())
+
+##vISULAISATIONS TO DO:
+
+##1.we want urban and rural maps for binary - OR for each region for crude rural urban disparity
+
+##ADJUSTED ODDS RATIOS TO DO:
+
+##1. check SOes model fitting and step AIC including removal of outliers
+
+##2. should we adjust by region
+
+##3. Calculate adjusted OR with final model
+
+##TABLE 1 TO DO - pvalue for table 1,?combine the 45-49 age catagory due to issue with small numbers when calculating the odds ratio!!! How to combine:
+
+##1. Combine small grouped variables:
+##a.Age (combine 35-44 and 45-49) - done
+##b.Married v510 Use Soes code.- done
+##c.ANC_Visits (o, 1-3, 4+ which would be the ideal) - done
+##2. add ch squared and pvalues
+##3. Do weighted N in table 1
+##4. Choose the model confounder based on the chi square test to include in the model
+##5. Table 2 - Outcome OR - first row is OR 1 (model with just R/U Outcome~U/R, OR then with each confounded in diff columns, model 2(Outcome ~ urban/rural + age) with addition of the next group of confounders, we are only focussing on the DIFERENCE between OR for U/R with each model )
+##6. Present Joes table with one by one ORs a figure with controlled and not controlled box plots
+########This is because - How do we knows confounders influence eachother when we just add in a particular order - not a very formal way - mediation analysis is the formal way of doing this
+#### change the reference for the models - should be the LARGEST COHORT OR EASIER TO INTERPERET
+#### special status - missing not at random
+
+
+### Balances of Missing cases between rural and urban? but this this okay
