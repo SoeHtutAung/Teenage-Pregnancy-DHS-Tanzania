@@ -9,6 +9,11 @@ library(ggplot2)
 library(jtools)
 library(survey)
 library(dplyr)
+library(labelled)
+library(ggcorrplot)
+library(vip)
+library(tibble)
+library(forcats)
 ```
 
 ```{r load}
@@ -326,19 +331,87 @@ round((svytable(~type_migrate + v025 + teen_preg + recent_migrate,
 
 ## 3. Modified plots
 
-```{r modified}
+*Two sources: <https://rpubs.com/John_1324/1039222>, <https://r-graph-gallery.com/ggplot2-package.html>*
+
+To visualize variables of importance in regression model. *Can build one plot after compiling vip of all outcomes and select variables of interest.*
+
+```{r vipplots}
+#check the output in vip package 
+vip(modelfit, num_features = 8, geom = "point", horizontal = TRUE) +
+  theme_light()
+
+# want to edit variable names, so manually plot vip for 8 variables with p-value of <0.05 in summary() 
+# create namelist
+names <- c("In marriage/union", "Past marriage/union", "Age", "Information about family planning","Secondar or higher education","Knows contraceptive method", "Problem access to service - being alone","Highest education level of household")
+# create a df
+viptable <- caret::varImp(modelfit) %>% arrange(desc(abs(Overall))) %>% 
+  head(8) %>% mutate (names = names)
+# plot
+viptable %>% # arrange(desc(abs(Overall))) %>%
+  ggplot () + 
+  geom_point(aes(Overall,fct_reorder(names,Overall))) +
+  labs (x = "Importance") +
+  theme_minimal() +
+  theme(axis.title.y = element_blank()) 
+```
+
+To visualize distribution of characteristics in different outcome groups, disaggregated by residence.
+
+```{r modified_bars}
 # education status
 round((svytable(~edu_gp + v025 + teen_preg, design = dhs)/1e6),0) %>%
   as.data.frame() %>% 
+  ## plotting
   ggplot(aes(x = v025, y = Freq, fill = edu_gp)) +
   geom_bar(position = "fill", stat = "identity") +
   scale_x_discrete(labels = c("1" = "Urban", "2" = "Rural")) +
   theme_minimal() +
   scale_fill_manual(
-    values = c("0" = "tomato1", "1" = "orange2", "2" = "springgreen4"),
+    values = c("0" = "tomato1", "1" = "orange", "2" = "green3"),
     labels = c("0" = "No education", "1" = "Primary", "2" = "Secondary +"), 
     name = "Education") +
   labs(x = "Type of residence", y = "Proportion") +
   facet_grid(rows = vars(teen_preg),labeller = labeller(
     teen_preg = c("0" = "No", "1" = "Teenage pregnancy")))
+```
+
+Same as above, but points
+
+```{r modified_points}
+#compare all three lists
+round((svytable(~edu_gp + v024 + v025 + teen_preg, 
+                design = dhs) / 1e6), 0) %>%  as.data.frame() %>%
+  ggplot(aes(x = v025, y = Freq,
+             fill = factor(edu_gp))) +
+  geom_point(shape = 21, alpha = 0.7, size = 5) +
+  ylim (0,50) +
+  theme_minimal() +
+  facet_grid(rows = vars(teen_preg),
+             labeller = labeller (
+               teen_preg = c("0" = "No", "1" = "Teenage pregnancy")))
+
+```
+
+Can explain about relationship between variables in correlation matrix.
+
+```{r correlationmatrix}
+#prepare dataset
+cordata <- finaldata %>% select(c("v025","v024","v012","edu_gp",
+                                  "marital","v190","employ_current",
+                                  "contra_know_any","fp_info","v467c","v467f","hv012","hv219","edu","premaritalsex","recent_migrate","type_migrate")) %>% mutate_all (as.numeric) 
+
+#change columnames
+colnames(cordata) <- c("Residance","Region","Age","Education","Marital","Wealth index","Employment","Knowledge contrac..", "Family planning","Problem - money","Problem - alone", "Household size","Sex HH head","Highest education of HH","Premarital sex", "Recent migration","Type of migration")
+
+#ggcorrplot (can modify)
+cordata <- na.omit(cordata)
+ggcorrplot(cor(cordata),
+           #type = "lower",
+           #method = "circle",
+           title="Correlogram of variables") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+
+```{r}
+
 ```
