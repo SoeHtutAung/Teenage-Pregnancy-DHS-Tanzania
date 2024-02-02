@@ -1074,3 +1074,24 @@ ggplot(data = map_region) +
                        na.value = "grey75") + 
   ggtitle("Percentage of births where mother has had hypertension by Region (%)") + 
   theme(axis.title = element_blank())
+
+
+####obesity###################################################
+bmi_region <- round(prop.table(svytable(~ v445_cat + v024, design = design) ,margin = 2) *100, 2)
+map_region$obesity <- bmi_region[2,]
+
+ggplot(data = map_region) + 
+  #add the regions' layers
+  geom_sf(aes(fill = obesity), size = 1.5, color = "black") + 
+  #add the label of each region
+  geom_sf_text(aes(label = ADM1_EN), size = 2.5) +
+  #add the point for each, seems the sampling clusers, but I'm not sure
+  #geom_sf(data = map_point , size = 1.5, color = "black") + 
+  scale_fill_gradient2(name = "Percentage (%)",
+                       limits = c(0, 35),
+                       #breaks = seq(from = 0, to = 100, by = 10),
+                       low = pal_nejm("default")(8)[7], 
+                       high = pal_nejm("default")(8)[1],
+                       na.value = "grey75") + 
+  ggtitle("Percentage of births where mother has had obesity by Region (%)") + 
+  theme(axis.title = element_blank())
