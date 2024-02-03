@@ -1,15 +1,6 @@
-library(dplyr)
-library(haven)
-library(survey)
-library(tidyverse)
-library(plyr)
-library(sf)
-library(ggsci)
-
-
 #######LOAD DATA
 ##read births data set
-#births_BR <- read_dta("C:/Users/Saund/OneDrive - London School of Hygiene and Tropical Medicine/TZDHS/Survey Data/Births/TZBR82FL.DTA")
+births_BR <- read_dta("C:/Users/Saund/OneDrive - London School of Hygiene and Tropical Medicine/TZDHS/Survey Data/Births/TZBR82FL.DTA")
 #births_BR <- read_dta("~/Downloads/UNICEF DATA/Births/TZBR82FL.DTA") # for nikki 
 
 ##load txt file with variable codes from code list
@@ -20,7 +11,7 @@ library(ggsci)
 ##use txt file of codes to filter births dataset
 selected_vars <- c(
   "caseid", "bidx", "v023", "v025", "v001", "v002", "v005", "v012", "v011", "v008",
-  "b3", "b0", "b11", "b12", "b20", "b4", "b5", "b6", "b7", "m13", "m14", "m15", "m17",
+  "b3", "b0", "b11", "b12","b19", "b20", "b4", "b5", "b6", "b7", "m13", "m14", "m15", "m17",
   "m19", "m3a", "m3b", "m3c", "m3d", "m3e", "m3f", "m3g", "m3h", "m3i", "m3k", "m3n",
   "m45", "m66", "m70", "s1125", "v190", "v457", "v011", "v456", "v155", "v201", "v245",
   "v445", "v463aa", "v485a", "v501"
@@ -34,13 +25,10 @@ births_subset <- births_BR %>%
 ##mum_age_pregancy = mum dob - baby dob
 births_subset$mum_age_pregnancy<- round(((births_subset$b3 - births_subset$v011)/12),0)
 
-##how many years ago from interview was the child born?
-## date of interview - date of birth of child
-births_subset$test <- round(((births_subset$v008 - births_subset$b3)/12),0)
 
 ##FILTER BY BIRTHS IN LAST 3 YRS
-##filter test column to < 3 to use only births in the lat 3 years
-births_last3years <- births_subset %>% filter(test < 3)
+##filter b19 column to < 36 to use only births in the lat 3 years
+births_last3years <- births_subset %>% filter(b19 < 36)
 
 ##summary
 summary(births_last3years)
@@ -62,8 +50,7 @@ births_last3years <- births_last3years %>%
   mutate(
     senior_delivery_attendant = case_when(
       m3a == 1 ~ "Doctor",
-      m3b == 1 | m3d == 1 | m3e == 1 ~ "Nurse/midwife",
-      m3c == 1 | m3f ==1  ~ "Auxiliary midwife",
+      m3b == 1 | m3d == 1 | m3e == 1 | m3c == 1 | m3f ==1 ~ "Nurse/midwife",
       m3g == 1 ~ "Traditional birth attendant",
       m3h == 1 | m3i == 1 | m3k == 1 ~ "Relative/other",
       m3n == 1 ~ "No one",
@@ -98,20 +85,12 @@ births_last3years <- births_last3years %>% mutate(
 births_last3years <- births_last3years %>%
   mutate(v201_cat = case_when(
     v201 == 0 ~ "0",
-    v201 == 1 ~ "1",
-    v201 == 2 ~ "2",
-    v201 == 3 ~ "3",
-    v201 == 4 ~ "4",
-    v201 == 5 ~ "5",
-    v201 == 6 ~ "6",
-    v201 == 7 ~ "7",
-    v201 == 8 ~ "8",
-    v201 == 9 ~ "9",
-    v201 == 10 ~ "10",
-    v201 >= 11 ~ ">=11",
+    v201 <=3 & v201 >= 1 ~ "1-3",
+    v201 >= 4 ~ "4+",
     TRUE ~ as.character(NA) # default case to return NA for values that don't fit any of the above conditions
   ))
 
+births_clean$v201
 
 ##mug age cat
 births_last3years <- births_last3years %>%
@@ -127,32 +106,12 @@ births_last3years <- births_last3years %>%
 ##catagorise ANC to 0, 1-3, 4+
 births_last3years<- births_last3years %>%
   mutate(ANC_visits = case_when(
-    m14 == 0 ~ "None",
+    m14 %in% c(0, 98, NA)  ~ "None",
     between(m14, 1, 3) ~ "1-3",
     m14 >= 4 ~ "4+",
     TRUE ~ NA_character_  # For any other cases, set to NA
   ))
 
-births_last3years <- births_last3years %>%
-  mutate(m14 = case_when(
-    m14 %in% c(0, 98, NA) ~ 0,
-    m14 == 1 ~ 1,
-    m14 == 2 ~ 2,
-    m14 == 3 ~ 3,
-    m14 == 4 ~ 4,
-    m14 == 5 ~ 5,
-    m14 == 6 ~ 6,
-    m14 == 7 ~ 7,
-    m14 == 8 ~ 8,
-    m14 == 9 ~ 9,
-    m14 == 10 ~ 10,
-    m14 == 11 ~ 11,
-    m14 == 12 ~ 12,
-    m14 == 13 ~ 13,
-    m14 == 14 ~ 14,
-    m14 == 15 ~ 15,
-    m14 == 16 ~ 16
-  ))
 
 ####marital status
 
@@ -188,21 +147,44 @@ births_last3years <- births_last3years %>% mutate(
   )
 )
 
+##literacy cat v155
+births_last3years <- births_last3years %>%
+  mutate(v155_cat = case_when(
+    v155 == 0 ~ "0",
+    v155 == 1 ~ "1", 
+    v155 == 2 ~ "2",
+    v155 >=3 ~ "3"
+  ))
+
 ##pregancy losses cat
 births_last3years <- births_last3years %>%
   mutate(v245_cat = case_when(
     v245 == 0 ~ "0",
     v245 == 1 ~ "1",
-    v245 == 2 ~ "2",
-    v245 >= 3 ~ ">=3",
+    v245 >= 2 ~ "2",
     TRUE ~ as.character(NA) # default case to return NA for values that don't fit any of the above conditions
   ))
+
+##post nate check
+births_last3years <- births_last3years %>%
+  mutate(m70_cat = case_when(
+    m70 == 0 ~ "0",
+    m70 == 1 ~ "1",
+    m70 >= 3 ~ "Don't know or child died at facility"
+  ))
+
+births_last3years <- births_last3years %>%
+  mutate(v463aa_cat = case_when(
+    v463aa == 0 ~ "0",
+    v463aa >= 1 ~ "1",
+  ))
+
 
 ##remove uneeded recoded variables
 births_clean <- births_last3years %>% 
   dplyr::select(-v011, -v008, -b3, -m3a, -m3b, -m3c, -m3d
                 , -m3e, -m3f, -m3g, -m3h, -m3i, -m3k, -m3n
-                , - test, -v012, -b6, -b7)
+                , -v012, -b6, -b7)
 
 ##reorder dataframe
 # births_clean <- births_clean %>%
