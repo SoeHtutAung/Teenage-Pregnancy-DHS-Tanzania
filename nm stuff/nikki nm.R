@@ -128,7 +128,7 @@ forestplot(labeltext = labels,
            col = fpColors(box = "royalblue", line = "darkblue", summary = "royalblue"))
 
 
-######################## Figure to illustrate table 2  ######################## 
+######################## Figure of individual ORs  ######################## 
 #ORs of Rural / Urban coefficient OR changes by individual categorical models
 
 #Creating individual models with v025
@@ -209,6 +209,12 @@ upper_ci <- c(exp_coef_ci_region['upper.97.5 %'], exp_coef_ci_sociodem['upper.97
 # Define the model names for the plot
 labels <- c("Model Region", "Model Sociodemographic", "Model Pregnancy", "Model Labour")
 
+# Specify the full file path where you want to save the PNG file
+file_path <- "/Users/nikkiyu/Downloads/2 Data Challenge/unicef/nm stuff/forest_plot.png"
+
+# Open a PNG device with the specified file path
+png(file_path, width = 1200, height = 800)
+
 # Create the forest plot
 forestplot(labeltext = labels,
            mean = coefficients,
@@ -221,3 +227,4 @@ forestplot(labeltext = labels,
            col = fpColors(box = "royalblue", line = "darkblue", summary = "royalblue"), 
            title = "Odds Ratio of Rural / Urban Coefficient OR Changes by Individual Categorical Models")
 
+dev.off()
