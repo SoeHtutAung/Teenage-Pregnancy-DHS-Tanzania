@@ -65,6 +65,13 @@ rur_pop <- svytable(~v025, sb_design)[[2]]
 # svytable(~edu+v025, sb_design)/urb_pop*100
 # confint(svymean(~factor(matage), sb_design))*100
 
+# For table 2, here is the starting model
+model1 <-
+  svyglm( stillbirth~relevel(factor(v025), ref = 2),
+          sb_design, family = quasibinomial() )
+exp(coef(model1))
+exp(confint(model1))
+
 # For anaemia, bmi, and history of previous stillbirth, please see below
 
 ######################################################################
