@@ -3,10 +3,11 @@ library(haven)
 library(survey)
 library(tidyverse)
 library(plyr)
+library(ggplot2)
 
 #Run nm_master.R document for "births_clean" dataset
 
-########################  TABLE 2 - ODDS RATIO ######################## 
+########################  new - TABLE 2 - ODDS RATIO ######################## 
 
 #Setting up survey package 
 births_clean$wt <- births_clean$v005/1000000
@@ -46,9 +47,6 @@ model_2 <- svyglm(factor(neo_mort) ~ factor(v025) + # rural/urban
                   design = design, 
                   family = quasibinomial(), 
                   na.action = na.omit)
-
-
-
 
 print(exp(coef(model_2)[2])) %>% round(2)
 print (exp (confint(model_2)[2, ])) %>% round(2)
@@ -105,6 +103,78 @@ model_4 <- svyglm(factor(neo_mort) ~ factor(v025) + # rural/urban
 print(exp(coef(model_4)[2])) %>% round(2)
 print (exp (confint(model_4)[2, ])) %>% round(2)
 print(summary(model_4)$coefficients[2,"Pr(>|t|)"]) %>% round(2)
+
+######################## New - Figure 1  ######################## 
+# Assuming you have model_1, model_2, model_3, model_4 fitted
+
+# Vectors for storing the exponentiated coefficients and their confidence intervals
+coefficients <- numeric(4)
+lower_ci <- numeric(4)
+upper_ci <- numeric(4)
+
+models <- list(model_1, model_2, model_3, model_4)
+
+for (i in seq_along(models)) {
+  coefficients[i] <- exp(coef(models[[i]])[2])
+  ci <- exp(confint(models[[i]])[2, ])
+  lower_ci[i] <- ci[1]
+  upper_ci[i] <- ci[2]
+}
+
+# Round the values
+coefficients <- round(coefficients, 2)
+lower_ci <- round(lower_ci, 2)
+upper_ci <- round(upper_ci, 2)
+
+# Prepare the data for ggplot2
+forest_data <- data.frame(
+  Model = paste("Model", 1:4),
+  Coefficient = coefficients,
+  LowerCI = lower_ci,
+  UpperCI = upper_ci
+)
+
+# Duplicate Model 1's data
+model_1_data <- forest_data[1, ]
+
+# Create a new data frame for the adjusted order
+adjusted_forest_data <- rbind(forest_data[2, ], model_1_data, 
+                              forest_data[3, ], model_1_data,
+                              forest_data[4, ], model_1_data)
+
+# Reset the row names to ensure they are in sequential order
+# rownames(adjusted_forest_data) <- NULL
+
+# Reset the factor levels for 'Model'
+# adjusted_forest_data$Model <- factor(adjusted_forest_data$Model, 
+                                     # levels = unique(adjusted_forest_data$Model))
+
+# Correct the 'Model' column to have unique identifiers
+adjusted_forest_data$Model <- factor(c("Model 2", "Model 1", 
+                                       "Model 3", "Model 1", 
+                                       "Model 4", "Model 1"))
+
+p <- ggplot(adjusted_forest_data, aes(x = Coefficient, y = fct_rev(Model))) +
+  geom_point() +
+  geom_errorbarh(aes(xmin = LowerCI, xmax = UpperCI), height = 0.2) +
+  xlab("Odds Ratio") +
+  ylab("") +
+  labs(title = "Exploratory Investigation of Rural/Urban Region Based on Categorical Variables") +
+  theme_classic()
+
+print(p)
+
+
+# Now create the adjusted forest plot
+test <- ggplot(adjusted_forest_data, aes(x = Coefficient, y = Model)) +
+  geom_point() +
+  geom_errorbarh(aes(xmin = LowerCI, xmax = UpperCI), height = 0.1) +
+  xlab("Odds Ratio") + ylab("") +
+  labs(title = "Exploratory Investigation of Rural/Urban Region Odds Ratio Based on Categorical Variables") +
+  theme_minimal()
+
+# To display the plot
+print(test)
 
 ######################## Old - TABLE 1 CONTEXT ######################## 
 #Setting up survey package 
