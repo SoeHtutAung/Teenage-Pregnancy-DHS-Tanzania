@@ -36,3 +36,34 @@ tzn_nmr %>%
   xlim( 1992,2022 ) + ylim( 0,100 ) + # changing the limits
   ylab( "NMR (per 1,000 live births)" ) +
   ggtitle("Neonatal Mortality Rates in Tanzania","by Place of Residence") # arg1 Title, arg2 Subtitle
+
+############################################
+
+# Public Data from IGME
+
+IGME_data <-
+  read.csv("C:/Users/Joe/Downloads/UNICEF-CME_DF_2021_WQ-1.0-download.csv")
+
+tzn_sb <-
+  IGME_data[,c(9,26,27)]
+
+tzn_sb <- 
+  data.frame(
+    year = 1968:2021,
+    rate = as.vector(IGME_data$OBS_VALUE.Observation.Value),
+    lower = as.vector(IGME_data$LOWER_BOUND.Lower.Bound),
+    upper = as.vector(IGME_data$UPPER_BOUND.Upper.Bound)
+  )
+sb_timeline <- ggplot(tzn_sb, aes(year))
+sb_timeline <- 
+  sb_timeline +
+  geom_ribbon(aes(ymin=lower, ymax=upper), fill="skyblue") +
+  geom_line(aes(y=rate), col = "blue4")
+sb_timeline +
+  theme_bw() +
+  theme( plot.title = element_text(hjust = 0.5),
+         plot.subtitle = element_text(hjust = 0.5) ) +
+  xlim( c(1991, 2021) ) + ylim( c(0,50) ) +
+  xlab( "Year") + ylab( "SB (per 1,000 births)" ) +
+  ggtitle("Stillbirth Rates in Tanzania","from IGME") # arg1 Title, arg2 Subtitle
+
