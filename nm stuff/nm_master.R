@@ -1,6 +1,16 @@
+
+library(dplyr)
+library(haven)
+library(survey)
+library(tidyverse)
+library(plyr)
+library(sf)
+library(ggsci)
+
+
 #######LOAD DATA
 ##read births data set
-births_BR <- read_dta("C:/Users/Saund/OneDrive - London School of Hygiene and Tropical Medicine/TZDHS/Survey Data/Births/TZBR82FL.DTA")
+#births_BR <- read_dta("C:/Users/Saund/OneDrive - London School of Hygiene and Tropical Medicine/TZDHS/Survey Data/Births/TZBR82FL.DTA")
 #births_BR <- read_dta("~/Downloads/UNICEF DATA/Births/TZBR82FL.DTA") # for nikki 
 
 ##load txt file with variable codes from code list
@@ -35,9 +45,11 @@ summary(births_last3years)
 
 
 ##NEW VAR FOR NEONATAL MORTALITY
+count(is.na(births_last3years$b6))
 births_last3years <- births_last3years %>%
   mutate(neo_mort = ifelse(is.na(b6) | b6 > 130, 0, 1),
          age_at_death_days = ifelse(neo_mort == 1, b6 %% 100, NA))
+table(births_last3years$neo_mort)
 
 ##RECODE DELIVERY ASSISTANT COLUMNS
 ##combine the columns m3a-m3n (assistant at delivery) into one column with factors
@@ -53,8 +65,7 @@ births_last3years <- births_last3years %>%
       m3b == 1 | m3d == 1 | m3e == 1 | m3c == 1 | m3f ==1 ~ "Nurse/midwife",
       m3g == 1 ~ "Traditional birth attendant",
       m3h == 1 | m3i == 1 | m3k == 1 ~ "Relative/other",
-      m3n == 1 ~ "No one",
-      TRUE ~ NA_character_
+      m3n == 1 ~ "No one"
     )
   )
 
@@ -71,26 +82,28 @@ births_last3years <- births_last3years %>%
 ##as numeric for birthweight
 ##9996 is not weighed and 9998 is don't no, will convert to NAs for analysis
 births_last3years$m19 <- as.numeric(births_last3years$m19)
-births_last3years <- births_last3years %>%
-  mutate(m19 = ifelse(m19 %in% c(9996, 9998), NA, m19))
+
 
 births_last3years <- births_last3years %>% mutate(
   m19_cat = case_when(
     m19 <2500 ~ "lowbw",
-    m19 >=2500 ~ "notlowbw",
-    TRUE ~ NA_character_ 
+    m19 >=2500 & m19 < 9990 ~ "notlowbw",
+    m19 %in% c(9996,9998) ~ NA
   )
 )
+
+
+
+
+count(births_last3years$m19_cat)
 ## total pregancies cat
 births_last3years <- births_last3years %>%
   mutate(v201_cat = case_when(
     v201 == 0 ~ "0",
     v201 <=3 & v201 >= 1 ~ "1-3",
-    v201 >= 4 ~ "4+",
-    TRUE ~ as.character(NA) # default case to return NA for values that don't fit any of the above conditions
+    v201 >= 4 ~ "4+"
   ))
 
-births_clean$v201
 
 ##mug age cat
 births_last3years <- births_last3years %>%
@@ -98,20 +111,23 @@ births_last3years <- births_last3years %>%
     mum_age_pregnancy < 20 ~ "<20",
     mum_age_pregnancy >= 20 & mum_age_pregnancy < 25 ~ "20-24",
     mum_age_pregnancy >= 25 & mum_age_pregnancy < 35 ~ "25-34",
-    mum_age_pregnancy >= 35  ~ "35+",
-    TRUE ~ as.character(NA) # default case to return NA for values that don't fit any of the above conditions
+    mum_age_pregnancy >= 35  ~ "35+"
   ))
 
 
 ##catagorise ANC to 0, 1-3, 4+
 births_last3years<- births_last3years %>%
   mutate(ANC_visits = case_when(
-    m14 %in% c(0, 98, NA)  ~ "None",
+    m14 %in% c(98, NA)  ~ "Don't Know or Missing",
+    m14 == 0 ~ "None",
     between(m14, 1, 3) ~ "1-3",
-    m14 >= 4 ~ "4+",
-    TRUE ~ NA_character_  # For any other cases, set to NA
+    m14 >= 4 ~ "4+"
   ))
 
+##From DHS stats manual - "Don't know" or missing values on number of antenatal care visits and timing of first ANC are excluded
+##from numerators but included in denominators
+
+births_last3years$ANC_visits %>% count()
 
 ####marital status
 
@@ -119,9 +135,10 @@ births_last3years<- births_last3years %>%
   mutate(v501_cat = case_when(
     v501 == 0 ~ "Never Union",
     between(v501, 1, 2) ~ "Married/living with partner",
-    v501 >= 3 ~ "Divorced/Widowed or Seperated",
-    TRUE ~ NA_character_  # For any other cases, set to NA
+    v501 >= 3 ~ "Divorced/Widowed or Seperated"
   ))
+
+
 
 ##catagorise BMI Underweight <18.5, Normal 18.5-24.9, overweight 25-29.9, obese 30+
 
@@ -133,17 +150,19 @@ births_last3years <- births_last3years %>% mutate(
     v445 < 18.5 ~ "Underweight",
     (18.5 <= v445 & v445 < 25) ~ "Normal",
     (25 <= v445 & v445 < 30) ~ "Overweight",
-    v445 >= 30 ~ "Obese",
-    TRUE ~ NA_character_
+    v445 >= 30 ~ "Obese"
   )
 )
+
+##From DHS Stats manual Women who were not weighed and measured and women whose values for weight and height were not
+#recorded are excluded from both the denominator and the numerators
+
 
 ######b20 gestation at bith recode
 births_last3years <- births_last3years %>% mutate(
   b20_cat = case_when(
     b20 <= 8 ~ "preterm",
-    b20 > 8 ~"fullterm",
-    TRUE ~ NA
+    b20 > 8 ~"fullterm"
   )
 )
 
@@ -161,14 +180,13 @@ births_last3years <- births_last3years %>%
   mutate(v245_cat = case_when(
     v245 == 0 ~ "0",
     v245 == 1 ~ "1",
-    v245 >= 2 ~ "2",
-    TRUE ~ as.character(NA) # default case to return NA for values that don't fit any of the above conditions
+    v245 >= 2 ~ "2"
   ))
 
-##post nate check
+##post nate check ##NAs counted as No's as per DHS stats manual
 births_last3years <- births_last3years %>%
   mutate(m70_cat = case_when(
-    m70 == 0 ~ "0",
+    m70 %in% c(0, NA) ~ "0",
     m70 == 1 ~ "1",
     m70 >= 3 ~ "Don't know or child died at facility"
   ))
@@ -217,182 +235,194 @@ design <- survey::svydesign(id=~v001,
 
 
 #1. Number of pregnancies with anaemia (v457) 
-births_clean$v457
-count(births_clean$v457) 
+count(births_clean$v457)
 
-#Split by urban / rural by percentage (v025)
-count(births_clean$v457[births_clean$v025 == 1]) #Urban
-count(births_clean$v457[births_clean$v025 == 2]) #Rural 
+anaemia <- as.data.frame(svytable(~ v457, design = design)  %>% round(0))
+anaemia$percent <- (anaemia[,2]/sum(anaemia[,2])*100) %>% round(2)
+anaemia$prop<- round(prop.table(svytable(~ v457 + v025, design = design) ,margin = 2) *100, 2)
+chi_anaemia <- (summary(svytable(~ v457 + v025, design = design), statistic = "Chisq"))
+chi_anaemia$statistic$statistic
+chi_anaemia$statistic$p.value
 
-round(prop.table(svytable(~ v457 + v025, design = design) ,margin = 2) *100, 2)
+births_clean$v457<- relevel(factor(births_clean$v457), ref = "4")
 
 #2. Number of pregnancies ever told they had HT (s1125)
 births_clean$s1125
-count(births_clean$s1125) 
+count(births_clean$s1125)
 
-count(births_clean$s1125[births_clean$v025 == 1]) #Urban
-count(births_clean$s1125[births_clean$v025 == 2]) #Rural 
-
-round(prop.table(svytable(~ s1125 + v025, design = design) ,margin = 2) *100, 2)
+hypt <- as.data.frame(svytable(~ s1125, design = design)  %>% round(0))
+hypt$percent <- (hypt[,2]/sum(hypt[,2])*100) %>% round(2)
+hypt$prop<- round(prop.table(svytable(~ s1125 + v025, design = design) ,margin = 2) *100, 2)
+chi_hypt <- (summary(svytable(~ s1125 + v025, design = design), statistic = "Chisq"))
+chi_hypt$statistic$statistic
+chi_hypt$statistic$p.value
 
 #3. Number of pregnancies with number of ANC visits 
 unique(births_clean$ANC_visits)
 count(births_clean$ANC_visits) 
 
-count(births_clean$ANC_visits[births_clean$v025 == 1]) #Urban
-count(births_clean$ANC_visits[births_clean$v025 == 2]) #Rural
+anc <- as.data.frame(svytable(~ ANC_visits, design = design)  %>% round(0))
+anc$percent <- (anc[,2]/sum(anc[,2])*100) %>% round(2)
+anc$prop<- round(prop.table(svytable(~ ANC_visits + v025, design = design) ,margin = 2) *100, 2)
+chi_anc <- (summary(svytable(~ ANC_visits + v025, design = design), statistic = "Chisq"))
+chi_anc$statistic$statistic
+chi_anc$statistic$p.value
 
-round(prop.table(svytable(~ ANC_visits + v025, design = design) ,margin = 2) *100, 2)
+births_clean$ANC_visits<- relevel(factor(births_clean$ANC_visits), ref = "4+")
 
-#4. Number of pregnancies in pregnancy intervals
+#4. Number of pregnancies in pregnancy intervals - removed
 
 #5. Number of pregnancies by mulitplicity of mothers (v201) 
-
 count(births_clean$v201_cat) 
-
-#By percentage
-count_df <- count(births_clean$v201_cat)
-count_df$percentage <- round((count_df$freq / 5619) * 100,2)
-print(count_df)
-
-#By urban/rural (n)
-count(births_clean$v201_cat[births_clean$v025 == 1]) #Urban
-count(births_clean$v201_cat[births_clean$v025 == 2]) #Rural
-
-no_pregnancies <- round(prop.table(svytable(~ v201_cat + v025, design = design) ,margin = 2) *100, 2)
+kids <- as.data.frame(svytable(~ v201_cat, design = design)  %>% round(0))
+kids$percent <- (kids[,2]/sum(kids[,2])*100) %>% round(2)
+kids$prop<- round(prop.table(svytable(~ v201_cat + v025, design = design) ,margin = 2) *100, 2)
+chi_kids <- (summary(svytable(~ v201_cat + v025, design = design), statistic = "Chisq"))
+chi_kids$statistic$statistic
+chi_kids$statistic$p.value
 
 #6. Mum age at pregnancy (mum_age_pregnancy)
-count_df <- count(births_clean$mum_age_pregnancy)
-count_df$percentage <- (count_df$freq / 5619) * 100
-count_df$x
-summary(births_clean$mum_age_pregnancy)
-
-#By urban/rural (n)
-count(births_clean$mum_age_pregnancy[births_clean$v025 == 1]) #Urban
-count(births_clean$mum_age_pregnancy[births_clean$v025 == 2]) #Rural
+count(births_clean$mum_age_pregnancy_cat)
+mumage <- as.data.frame(svytable(~ mum_age_pregnancy_cat, design = design)  %>% round(0))
+mumage$percent <- (mumage[,2]/sum(mumage[,2])*100) %>% round(2)
+mumage$prop<- round(prop.table(svytable(~ mum_age_pregnancy_cat + v025, design = design) ,margin = 2) *100, 2)
+chi_mumage <- (summary(svytable(~ mum_age_pregnancy_cat + v025, design = design), statistic = "Chisq"))
+chi_mumage$statistic$statistic
+chi_mumage$statistic$p.value
 
 #7. Number by literacy (v155)
-count_df <- count(births_clean$v155)
-count_df$percentage <- (count_df$freq / 5619) * 100
-print(count_df)
+count(births_clean$v155_cat)
+lit <- as.data.frame(svytable(~ v155_cat, design = design)  %>% round(0))
+lit$percent <- (lit[,2]/sum(lit[,2])*100) %>% round(2)
+lit$prop<- round(prop.table(svytable(~ v155_cat + v025, design = design) ,margin = 2) *100, 2)
+chi_lit <- (summary(svytable(~ v155_cat + v025, design = design), statistic = "Chisq"))
+chi_lit$statistic$statistic
+chi_lit$statistic$p.value
 
-
-literacy <- round(prop.table(svytable(~ v155 + v025, design = design) ,margin = 2) *100, 2)
-
-#By urban/rural (n)
-count(births_clean$v155[births_clean$v025 == 1]) #Urban
-count(births_clean$v155[births_clean$v025 == 2]) #Rural
+births_clean$v155_cat<- relevel(factor(births_clean$v155_cat), ref = "2")
 
 #8. Number of pregnancy losses (v245)
+count(births_clean$v245_cat)
+loss <- as.data.frame(svytable(~ v245_cat, design = design)  %>% round(0))
+loss$percent <- (loss[,2]/sum(loss[,2])*100) %>% round(2)
+loss$prop<- round(prop.table(svytable(~ v245_cat + v025, design = design) ,margin = 2) *100, 2)
+chi_loss <- (summary(svytable(~ v245_cat + v025, design = design), statistic = "Chisq"))
+chi_loss$statistic$statistic
+chi_loss$statistic$p.value
 
-count_df <- count(births_clean$v245_cat)
-count_df$percentage <- round((count_df$freq / 5619) * 100,2)
-print(count_df)
-
-#By urban/rural (n)
-
-
-count(births_clean$v245_cat[births_clean$v025 == 1]) #Urban
-count(births_clean$v245_cat[births_clean$v025 == 2]) #Rural
-
-
-round(prop.table(svytable(~ v245_cat + v025, design = design) ,margin = 2) *100, 2)
-
+births_clean$v245_cat<- relevel(factor(births_clean$v245_cat), ref = "0")
 
 #9. Place of delivery for pregnancies (m15)
-count_df <- count(births_clean$m15)
-count_df$percentage <- (count_df$freq / 5619) * 100
-print(count_df)
+count(births_clean$m15)
+pod <- as.data.frame(svytable(~ m15, design = design)  %>% round(0))
+pod$percent <- (pod[,2]/sum(pod[,2])*100) %>% round(2)
+pod$prop<- round(prop.table(svytable(~ m15 + v025, design = design) ,margin = 2) *100, 2)
+chi_pod <- (summary(svytable(~ m15 + v025, design = design), statistic = "Chisq"))
+chi_pod$statistic$statistic
+chi_pod$statistic$p.value
 
-round(prop.table(svytable(~ m15 + v025, design = design) ,margin = 2) *100, 2)
+births_clean$m15<- relevel(factor(births_clean$m15), ref = "Public sector health facility")
 
 #10. Mode of delivery (m17)
-count_df <- count(births_clean$m17)
-count_df$percentage <- round((count_df$freq / 5619) * 100,2)
-print(count_df)
+count(births_clean$m17)
+del <- as.data.frame(svytable(~ m17, design = design)  %>% round(0))
+del$percent <- (del[,2]/sum(del[,2])*100) %>% round(2)
+del$prop<- round(prop.table(svytable(~ m17 + v025, design = design) ,margin = 2) *100, 2)
+chi_del <- (summary(svytable(~ m17 + v025, design = design), statistic = "Chisq"))
+chi_del$statistic$statistic
+chi_del$statistic$p.value
 
-round(prop.table(svytable(~ m17 + v025, design = design) ,margin = 2) *100, 2)
 
 #11. Sex of the baby (b4) 
-count_df <- count(births_clean$b4)
-count_df$percentage <- round((count_df$freq / 5619) * 100,2)
-print(count_df)
-
-round(prop.table(svytable(~ b4 + v025, design = design) ,margin = 2) *100, 2)
+count(births_clean$b4)
+sex <- as.data.frame(svytable(~ b4, design = design)  %>% round(0))
+sex$percent <- (sex[,2]/sum(sex[,2])*100) %>% round(2)
+sex$prop<- round(prop.table(svytable(~ b4 + v025, design = design) ,margin = 2) *100, 2)
+chi_sex <- (summary(svytable(~ b4 + v025, design = design), statistic = "Chisq"))
+chi_sex$statistic$statistic
+chi_sex$statistic$p.value
 
 #12. Gestation at birth (b20)
-count_df <- count(births_clean$b20_cat)
-count_df$percentage <- round((count_df$freq / 5619) * 100,2)
-print(count_df)
+count(births_clean$b20_cat)
+gest <- as.data.frame(svytable(~ b20_cat, design = design)  %>% round(0))
+gest$percent <- (gest[,2]/sum(gest[,2])*100) %>% round(2)
+gest$prop<- round(prop.table(svytable(~ b20_cat + v025, design = design) ,margin = 2) *100, 2)
+chi_gest <- (summary(svytable(~ b20_cat + v025, design = design), statistic = "Chisq"))
+chi_gest$statistic$statistic
+chi_gest$statistic$p.value
 
 #13. Post natal check (m70)
-count_df <- count(births_clean$m70)
-count_df$percentage <- round((count_df$freq / 5619) * 100,2)
-print(count_df)
+count(births_clean$m70_cat)
+post <- as.data.frame(svytable(~ m70_cat, design = design)  %>% round(0))
+post$percent <- (post[,2]/sum(post[,2])*100) %>% round(2)
+post$prop<- round(prop.table(svytable(~ m70_cat + v025, design = design) ,margin = 2) *100, 2)
+chi_post <- (summary(svytable(~ m70_cat + v025, design = design), statistic = "Chisq"))
+chi_post$statistic$statistic
+chi_post$statistic$p.value
 
-round(prop.table(svytable(~ m70 + v025, design = design) ,margin = 2) *100, 2)
-
-#14. Age (mum_age_pregnancy)
-
-count_df <- count(births_clean$mum_age_pregnancy_cat)     
-count_df$percentage <- round((count_df$freq / 5619) * 100,2)
-print(count_df)
-
-round(prop.table(svytable(~ mum_age_pregnancy_cat + v025, design = design) ,margin = 2) *100, 2)
-
-
-#15. Wealth v190
-unique(births_clean$v190)
-count(births_clean$v190)/5619
-count(births_clean$v190[births_clean$v025 == 1]) #Urban
-count(births_clean$v190[births_clean$v025 == 2]) #Rural
-wealth <- round(prop.table(svytable(~ v190 + v025, design = design) ,margin = 2) *100, 2)
+#14. Wealth v190
+count(births_clean$v190)
+wlth <- as.data.frame(svytable(~ v190, design = design)  %>% round(0))
+wlth$percent <- (wlth[,2]/sum(wlth[,2])*100) %>% round(2)
+wlth$prop<- round(prop.table(svytable(~ v190 + v025, design = design) ,margin = 2) *100, 2)
+chi_wlth <- (summary(svytable(~ v190 + v025, design = design), statistic = "Chisq"))
+chi_wlth$statistic$statistic
+chi_wlth$statistic$p.value
 
 
 #16.marital status v501
-unique(births_clean$v501_cat)
-count(births_clean$v501_cat)/5619
-count(births_clean$v501_cat[births_clean$v025 == 1]) #Urban
-count(births_clean$v501_cat[births_clean$v025 == 2]) #Rural
-round(prop.table(svytable(~ v501_cat + v025, design = design) ,margin = 2) *100, 2)
+count(births_clean$v501_cat)
+wed <- as.data.frame(svytable(~ v501_cat, design = design)  %>% round(0))
+wed$percent <- (wed[,2]/sum(wed[,2])*100) %>% round(2)
+wed$prop<- round(prop.table(svytable(~ v501_cat + v025, design = design) ,margin = 2) *100, 2)
+chi_wed <- (summary(svytable(~ v501_cat + v025, design = design), statistic = "Chisq"))
+chi_wed$statistic$statistic
+chi_wed$statistic$p.value
+
+births_clean$v501_cat<- relevel(factor(births_clean$v501_cat), ref = "Married/living with partner")
 
 #17.smoking v463aa
-unique(births_clean$v463aa)
-count(births_clean$v463aa)/5619
-count(births_clean$v463aa[births_clean$v025 == 1]) #Urban
-count(births_clean$v463aa[births_clean$v025 == 2]) #Rural
-round(prop.table(svytable(~ v463aa + v025, design = design) ,margin = 2) *100, 2)
+count(births_clean$v463aa_cat)
+smo <- as.data.frame(svytable(~ v463aa_cat, design = design)  %>% round(0))
+smo$percent <- (smo[,2]/sum(smo[,2])*100) %>% round(2)
+smo$prop<- round(prop.table(svytable(~ v463aa_cat + v025, design = design) ,margin = 2) *100, 2)
+chi_smo <- (summary(svytable(~ v463aa_cat + v025, design = design), statistic = "Chisq"))
+chi_smo$statistic$statistic
+chi_smo$statistic$p.value
 
 
 #18.BMI - v445################################
-unique(births_clean$v445_cat)
-count(births_clean$v445_cat)$freq/5619
-count(births_clean$v445_cat[births_clean$v025 == 1]) #Urban
-count(births_clean$v445_cat[births_clean$v025 == 2]) #Rural
-round(prop.table(svytable(~ v445_cat + v025, design = design) ,margin = 2) *100, 2)
+count(births_clean$v445_cat)
+bmi <- as.data.frame(svytable(~ v445_cat, design = design, na.action = na.omit)  %>% round(0))
+bmi$percent <- (bmi[,2]/sum(bmi[,2])*100) %>% round(2)
+bmi$prop<- round(prop.table(svytable(~ v445_cat + v025, design = design) ,margin = 2) *100, 2)
+chi_bmi <- (summary(svytable(~ v445_cat + v025, design = design), statistic = "Chisq"))
+chi_bmi$statistic$statistic
+chi_bmi$statistic$p.value
 
 #19.assistance at delivery - senior person attednign
-unique(births_clean$senior_delivery_attendant)
-count(births_clean$senior_delivery_attendant)$freq/5619
-count(births_clean$senior_delivery_attendant[births_clean$v025 == 1]) #Urban
-count(births_clean$senior_delivery_attendant[births_clean$v025 == 2]) #Rural
-attendant <- round(prop.table(svytable(~ senior_delivery_attendant + v025, design = design) ,margin = 2) *100, 2)
+count(births_clean$senior_delivery_attendant)
+aad <- as.data.frame(svytable(~ senior_delivery_attendant, design = design)  %>% round(0))
+aad$percent <- (aad[,2]/sum(aad[,2])*100) %>% round(2)
+aad$prop<- round(prop.table(svytable(~ senior_delivery_attendant + v025, design = design) ,margin = 2) *100, 2)
+chi_aad <- (summary(svytable(~ senior_delivery_attendant + v025, design = design), statistic = "Chisq"))
+chi_aad$statistic$statistic
+chi_aad$statistic$p.value
 
-
-#20. preterm b20#
-unique(births_clean$b20_cat)
-count(births_clean$b20_cat)#$freq/5619
-count(births_clean$b20_cat[births_clean$v025 == 1]) #Urban
-count(births_clean$b20_cat[births_clean$v025 == 2]) #Rural
-round(prop.table(svytable(~ b20_cat + v025, design = design) ,margin = 2) *100, 2)
+births_clean$v501_cat<- relevel(factor(births_clean$v501_cat), ref = "Married/living with partner")
 
 
 #21.bw m19
-unique(births_clean$m19_cat)
-count(births_clean$m19_cat)$freq/5619
-count(births_clean$m19_cat[births_clean$v025 == 1]) #Urban
-count(births_clean$m19_cat[births_clean$v025 == 2]) #Rural
-round(prop.table(svytable(~ m19_cat + v025, design = design) ,margin = 2) *100, 2)
+count(births_clean$m19_cat)
+lowbw <- as.data.frame(svytable(~ m19_cat, design = design)  %>% round(0))
+lowbw$percent <- (lowbw[,2]/sum(lowbw[,2])*100) %>% round(2)
+lowbw$prop<- round(prop.table(svytable(~ m19_cat + v025, design = design) ,margin = 2) *100, 2)
+chi_lowbw <- (summary(svytable(~ m19_cat + v025, design = design), statistic = "Chisq"))
+chi_lowbw$statistic$statistic
+chi_lowbw$statistic$p.value
+
+births_clean$m19_cat<- relevel(factor(births_clean$m19_cat), ref = "notlowbw")
+
 
 
 ############### Checking for missingness for table 2 regression ####################
@@ -461,7 +491,6 @@ table(births_clean$v445, births_clean$neo_mort, useNA = "always")
 
 table(teendata$contra_current, teendata$contra_future, useNA = "always") # can't identify exact numbers
 round(svytable(~contra_future + v025, design = dhs, na.action = na.pass)/1e6,0) # this table is used to
-
 
 
 

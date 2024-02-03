@@ -455,9 +455,11 @@ summary(births_last3years)
 
 
 ##NEW VAR FOR NEONATAL MORTALITY
+count(is.na(births_last3years$b6))
 births_last3years <- births_last3years %>%
   mutate(neo_mort = ifelse(is.na(b6) | b6 > 130, 0, 1),
          age_at_death_days = ifelse(neo_mort == 1, b6 %% 100, NA))
+table(births_last3years$neo_mort)
 
 ##RECODE DELIVERY ASSISTANT COLUMNS
 ##combine the columns m3a-m3n (assistant at delivery) into one column with factors
@@ -473,8 +475,7 @@ births_last3years <- births_last3years %>%
       m3b == 1 | m3d == 1 | m3e == 1 | m3c == 1 | m3f ==1 ~ "Nurse/midwife",
       m3g == 1 ~ "Traditional birth attendant",
       m3h == 1 | m3i == 1 | m3k == 1 ~ "Relative/other",
-      m3n == 1 ~ "No one",
-      TRUE ~ NA_character_
+      m3n == 1 ~ "No one"
     )
   )
 
@@ -491,26 +492,28 @@ births_last3years <- births_last3years %>%
 ##as numeric for birthweight
 ##9996 is not weighed and 9998 is don't no, will convert to NAs for analysis
 births_last3years$m19 <- as.numeric(births_last3years$m19)
-births_last3years <- births_last3years %>%
-  mutate(m19 = ifelse(m19 %in% c(9996, 9998), NA, m19))
+
 
 births_last3years <- births_last3years %>% mutate(
   m19_cat = case_when(
     m19 <2500 ~ "lowbw",
-    m19 >=2500 ~ "notlowbw",
-    TRUE ~ NA_character_ 
+    m19 >=2500 & m19 < 9990 ~ "notlowbw",
+    m19 %in% c(9996,9998) ~ NA
   )
 )
+
+
+
+
+count(births_last3years$m19_cat)
 ## total pregancies cat
 births_last3years <- births_last3years %>%
   mutate(v201_cat = case_when(
     v201 == 0 ~ "0",
     v201 <=3 & v201 >= 1 ~ "1-3",
-    v201 >= 4 ~ "4+",
-    TRUE ~ as.character(NA) # default case to return NA for values that don't fit any of the above conditions
+    v201 >= 4 ~ "4+"
   ))
 
-births_clean$v201
 
 ##mug age cat
 births_last3years <- births_last3years %>%
@@ -518,20 +521,23 @@ births_last3years <- births_last3years %>%
     mum_age_pregnancy < 20 ~ "<20",
     mum_age_pregnancy >= 20 & mum_age_pregnancy < 25 ~ "20-24",
     mum_age_pregnancy >= 25 & mum_age_pregnancy < 35 ~ "25-34",
-    mum_age_pregnancy >= 35  ~ "35+",
-    TRUE ~ as.character(NA) # default case to return NA for values that don't fit any of the above conditions
+    mum_age_pregnancy >= 35  ~ "35+"
   ))
 
 
 ##catagorise ANC to 0, 1-3, 4+
 births_last3years<- births_last3years %>%
   mutate(ANC_visits = case_when(
-    m14 %in% c(0, 98, NA)  ~ "None",
+    m14 %in% c(98, NA)  ~ "Don't Know or Missing",
+    m14 == 0 ~ "None",
     between(m14, 1, 3) ~ "1-3",
-    m14 >= 4 ~ "4+",
-    TRUE ~ NA_character_  # For any other cases, set to NA
+    m14 >= 4 ~ "4+"
   ))
 
+##From DHS stats manual - "Don't know" or missing values on number of antenatal care visits and timing of first ANC are excluded
+##from numerators but included in denominators
+
+births_last3years$ANC_visits %>% count()
 
 ####marital status
 
@@ -539,9 +545,10 @@ births_last3years<- births_last3years %>%
   mutate(v501_cat = case_when(
     v501 == 0 ~ "Never Union",
     between(v501, 1, 2) ~ "Married/living with partner",
-    v501 >= 3 ~ "Divorced/Widowed or Seperated",
-    TRUE ~ NA_character_  # For any other cases, set to NA
+    v501 >= 3 ~ "Divorced/Widowed or Seperated"
   ))
+
+
 
 ##catagorise BMI Underweight <18.5, Normal 18.5-24.9, overweight 25-29.9, obese 30+
 
@@ -553,17 +560,19 @@ births_last3years <- births_last3years %>% mutate(
     v445 < 18.5 ~ "Underweight",
     (18.5 <= v445 & v445 < 25) ~ "Normal",
     (25 <= v445 & v445 < 30) ~ "Overweight",
-    v445 >= 30 ~ "Obese",
-    TRUE ~ NA_character_
+    v445 >= 30 ~ "Obese"
   )
 )
+
+##From DHS Stats manual Women who were not weighed and measured and women whose values for weight and height were not
+#recorded are excluded from both the denominator and the numerators
+
 
 ######b20 gestation at bith recode
 births_last3years <- births_last3years %>% mutate(
   b20_cat = case_when(
     b20 <= 8 ~ "preterm",
-    b20 > 8 ~"fullterm",
-    TRUE ~ NA
+    b20 > 8 ~"fullterm"
   )
 )
 
@@ -581,14 +590,13 @@ births_last3years <- births_last3years %>%
   mutate(v245_cat = case_when(
     v245 == 0 ~ "0",
     v245 == 1 ~ "1",
-    v245 >= 2 ~ "2",
-    TRUE ~ as.character(NA) # default case to return NA for values that don't fit any of the above conditions
+    v245 >= 2 ~ "2"
   ))
 
-##post nate check
+##post nate check ##NAs counted as No's as per DHS stats manual
 births_last3years <- births_last3years %>%
   mutate(m70_cat = case_when(
-    m70 == 0 ~ "0",
+    m70 %in% c(0, NA) ~ "0",
     m70 == 1 ~ "1",
     m70 >= 3 ~ "Don't know or child died at facility"
   ))
@@ -669,8 +677,6 @@ anc$prop<- round(prop.table(svytable(~ ANC_visits + v025, design = design) ,marg
 chi_anc <- (summary(svytable(~ ANC_visits + v025, design = design), statistic = "Chisq"))
 chi_anc$statistic$statistic
 chi_anc$statistic$p.value
-
-749/6574
 
 births_clean$ANC_visits<- relevel(factor(births_clean$ANC_visits), ref = "4+")
 
@@ -797,7 +803,7 @@ chi_smo$statistic$p.value
 
 #18.BMI - v445################################
 count(births_clean$v445_cat)
-bmi <- as.data.frame(svytable(~ v445_cat, design = design)  %>% round(0))
+bmi <- as.data.frame(svytable(~ v445_cat, design = design, na.action = na.omit)  %>% round(0))
 bmi$percent <- (bmi[,2]/sum(bmi[,2])*100) %>% round(2)
 bmi$prop<- round(prop.table(svytable(~ v445_cat + v025, design = design) ,margin = 2) *100, 2)
 chi_bmi <- (summary(svytable(~ v445_cat + v025, design = design), statistic = "Chisq"))
