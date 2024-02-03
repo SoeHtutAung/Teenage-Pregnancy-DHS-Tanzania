@@ -4,114 +4,109 @@ library(survey)
 library(tidyverse)
 library(plyr)
 
+#Run nm_master.R document for "births_clean" dataset
 
-#######LOAD DATA
-##read births data set
-births_BR <- read_dta("TZBR82FL.DTA")
-births_BR <- read_dta("~/Downloads/UNICEF DATA/Births/TZBR82FL.DTA") # for nikki 
+########################  TABLE 2 - ODDS RATIO ######################## 
 
-##load txt file with variable codes from code list
-NM_variables <- readLines("NM_variables.txt")
-NM_variables <- readLines("/Users/nikkiyu/Downloads/2 Data Challenge/unicef/nm stuff/NM_variables.txt") #for nikki
+#Setting up survey package 
+births_clean$wt <- births_clean$v005/1000000
 
-##FILTER DATA BY VARIABLE CODES
-##use txt file of codes to filter births dataset
-births_subset <- births_BR %>% select(all_of(NM_variables)) %>% mutate(v024 = births_BR$v024)
+design <- survey::svydesign(id=~v001, 
+                            strata =~v023, 
+                            weights=~wt,
+                            data= births_clean)
 
+#Model 1. Rural / Urban odds ratio
+model_1 <- svyglm(factor(neo_mort) ~ factor(v025), 
+                    design = design, 
+                    family = quasibinomial(), 
+                    na.action = na.exclude)
 
+print(exp(coef(model_1)[2])) %>% round(2)
+print (exp (confint(model_1)[2, ])) %>% round(2)
+print(summary(model_1)$coefficients[2,"Pr(>|t|)"]) %>% round(2)
 
+#Model 2. model_1 + Socio-demographic factors
+# mother's age at pregnancy
+# literacy re-leveled
+# marital status re-leveled
+# smoking
+# BMI
+# Wealth quintile
+# pregnancy losses
 
-##CREATE NEW VARS
-##mum_age_pregancy = mum dob - baby dob
-births_subset$mum_age_pregnancy<- round(((births_subset$b3 - births_subset$v011)/12),0)
-
-##how many years ago from interview was the child born?
-## date of interview - date of birth of child
-births_subset$test <- round(((births_subset$v008 - births_subset$b3)/12),0)
-
-##FILTER BY BIRTHS IN LAST 3 YRS
-##filter test column to < 3 to use only births in the lat 3 years
-births_last3years <- births_subset %>% filter(test < 3)
-
-##summary
-summary(births_last3years)
-
-
-##NEW VAR FOR NEONATAL MORTALITY
-births_last3years <- births_last3years %>%
-  mutate(neo_mort = ifelse(is.na(b6) | b6 > 130, "No", "Yes"),
-         age_at_death_days = ifelse(neo_mort == "Yes", b6 %% 100, NA))
-
-##RECODE DELIVERY ASSISTANT COLUMNS
-births_last3years <- births_last3years %>%
-  mutate(
-    senior_delivery_attendant = case_when(
-      m3a == 1 ~ "Doctor",
-      m3b == 1 | m3d == 1 | m3e == 1 ~ "Nurse/midwife",
-      m3c == 1 | m3f ==1  ~ "Auxiliary midwife",
-      m3g == 1 ~ "Traditional birth attendant",
-      m3h == 1 | m3i == 1 | m3k == 1 ~ "Relative/other",
-      m3n == 1 ~ "No one",
-      TRUE ~ NA_character_
-    )
-  )
-
-##RECODE PLACE OF DELIVERY AS PER DHS MANUAL
-births_last3years <- births_last3years %>%
-  mutate(m15 = case_when(
-    m15 %in% 20:29 ~ "Public sector health facility",
-    m15 %in% 30:39 ~ "Private medical sector (non_NGO) health facility",
-    m15 %in% 40:49 ~ "Private medical sector (NGO) health facility",
-    m15 %in% 10:12 ~ "At home",
-    m15 %in% c(13, 14, 96) ~ "Other"
-  ))
-
-##as numeric for birthweight
-##9996 is not weighed and 9998 is don't no, will convert to NAs for analysis
-births_last3years$m19 <- as.numeric(births_last3years$m19)
-births_last3years <- births_last3years %>%
-  mutate(m19 = ifelse(m19 %in% c(9996, 9998), NA, m19))
-
-##divide bmi v445 by 100 and 9998 as flagged
-births_last3years$v445 <- as.numeric(births_last3years$v445)/100
-
-##catagorise ANC to 0, 1-3, 4-6, 7+ (m14)? can change this!
-births_last3years<- births_last3years %>%
-  mutate(ANC_visits = case_when(
-    m14 == 0 ~ "None",
-    between(m14, 1, 3) ~ "1-3",
-    between(m14, 4, 6) ~ "4-6",
-    m14 >= 7 ~ "7+",
-    TRUE ~ NA_character_  # For any other cases, set to NA
-  ))
+model_2 <- svyglm(factor(neo_mort) ~ factor(v025) + # rural/urban
+                    mum_age_pregnancy + # mother's age at pregnancy - numeric
+                    v155_cat + # literacy re-leveled - factor
+                    v501_cat + # marital status re-leveled - factor
+                    factor(v463aa_cat) + # smoking - factor
+                    v445 + # BMI - numeric
+                    factor(v190) + # Wealth quintile - not leveled - factor
+                    v245_cat, # pregnancy losses - re-leveled + factored
+                  design = design, 
+                  family = quasibinomial(), 
+                  na.action = na.omit)
 
 
-##remove uneeded recoded variables
-births_clean <- births_last3years %>% 
-  select (-v011, -v008, -b3, -m3a, -m3b, -m3c, -m3d
-         , -m3e, -m3f, -m3g, -m3h, -m3i, -m3k, -m3n
-         , - test, -v012, -b6, -b7, -m14)
 
-##reorder dataframe
-births_clean <- births_clean %>%
-  select(1:7, mum_age_pregnancy, b5, neo_mort, age_at_death_days, b4, b0, b20, b11, b12,
-         m13, ANC_visits, m15, senior_delivery_attendant, m17, m19, m45, m66, m70, s1125, everything())
 
-##DATA DICTIONARY
+print(exp(coef(model_2)[2])) %>% round(2)
+print (exp (confint(model_2)[2, ])) %>% round(2)
+print(summary(model_2)$coefficients[2,"Pr(>|t|)"]) %>% round(2)
 
-#births_clean data dictionary 
-variable_names_BR_clean <- names(births_clean)
-variable_labels_BR_clean <- sapply(births_clean, function(x) {
-  lbl <- attr(x, "label")
-  if (is.null(lbl)) "No label" else lbl
-})
+#Model 3. model 2 + Pregnancy factors
+#Number of pregnancies with hypertension (s1125) 
+#Number of ANC visit
+#Multiple pregnancies (v201) 
 
-dict_births_BR <- data.frame(
-  variable = variable_names_BR_clean,
-  description = variable_labels_BR_clean
-)
+model_3 <- svyglm(factor(neo_mort) ~ factor(v025) + # rural/urban
+                    mum_age_pregnancy + # mother's age at pregnancy - numeric
+                    v155_cat + # literacy re-leveled - factor
+                    v501_cat + # marital status re-leveled - factor
+                    factor(v463aa_cat) + # smoking - factor
+                    v445 + # BMI - numeric
+                    factor(v190) + # Wealth quintile - not leveled - factor
+                    v245_cat + # pregnancy losses - re-leveled + factored
+                    factor(s1125) +  #ever had hypertension - not leveled - factor 
+                    ANC_visits + #number of ANC visits - factor
+                    v201, #Multiple pregnancies - not leveled + numeric
+                  design = design, 
+                  family = quasibinomial(), 
+                  na.action = na.omit)
 
-######################## NIKKI SECTION - TABLE 1 CONTEXT ######################## 
+print(exp(coef(model_3)[2])) %>% round(2)
+print (exp (confint(model_3)[2, ])) %>% round(2)
+print(summary(model_3)$coefficients[2,"Pr(>|t|)"]) %>% round(2)
+
+#Model 4. model 3 + Labour / delivery / baby factors 
+# Place of delivery (m15) 
+# Assistance at delivery 
+# Mode of delivery (m17) 
+# Birth Weight (m19)  
+
+model_4 <- svyglm(factor(neo_mort) ~ factor(v025) + # rural/urban
+                    mum_age_pregnancy + # mother's age at pregnancy - numeric
+                    v155_cat + # literacy re-leveled - factor
+                    v501_cat + # marital status re-leveled - factor
+                    factor(v463aa_cat) + # smoking - factored
+                    v445 + # BMI - numeric
+                    factor(v190) + # Wealth quintile - not leveled - factored
+                    v245_cat + # pregnancy losses - re-leveled + factored
+                    factor(s1125) +  #ever had hypertension - not leveled - factor 
+                    ANC_visits + #number of ANC visits - factor
+                    v201 + #Multiple pregnancies - not leveled + numeric
+                    m15 + #Place of delivery - levels + factor
+                    factor(m17) + #Mode of delivery (C-section?) - not leveled + factored
+                    m19, #Birth Weight - numeric
+                  design = design, 
+                  family = quasibinomial(), 
+                  na.action = na.omit)
+
+print(exp(coef(model_4)[2])) %>% round(2)
+print (exp (confint(model_4)[2, ])) %>% round(2)
+print(summary(model_4)$coefficients[2,"Pr(>|t|)"]) %>% round(2)
+
+######################## Old - TABLE 1 CONTEXT ######################## 
 #Setting up survey package 
 births_clean$wt <- births_clean$v005/1000000
 
