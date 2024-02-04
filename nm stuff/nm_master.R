@@ -612,7 +612,7 @@ print(summary(model_5_2)$coefficients[2,"Pr(>|t|)"]) %>% round(2)
 coefficients <- c(0.73, 0.86, 1.50, 1.54, 1.55)
 lower_ci <- c(0.46, 0.48, 0.58, 0.59, 0.38)
 upper_ci <- c(1.16, 1.53, 3.91, 4.01, 4.09)
-labels <- c("Model 1", "Model 2", "Model 3", "Model 4", "Model 4")
+labels <- c("Model 1: NMR ~ Urban/Rural ", "Model 2: Model 1 + Sociodemographics", "Model 3: Model 2 + Maternal Health", "Model 4: Model 3 + Pregnacy", "Model 5: Model 4 + Previous pregnancies")
 
 forest_data <- matrix(c(rep("", 5), lower_ci, coefficients, upper_ci), 
                       ncol = 5, byrow = FALSE)
@@ -913,10 +913,10 @@ nm_forest[15,] <-
 
 
 # Vectors for storing the exponentiated coefficients and their confidence intervals
-coefficients <- as.numeric(nm_forest$ORadj)
-lower_ci <- as.numeric(nm_forest$OR_lower)
-upper_ci <- as.numeric(nm_forest$OR_higher)
-labels <- nm_forest$each_factor
+coefficients_ind <- as.numeric(nm_forest$ORadj)
+lower_ci_ind <- as.numeric(nm_forest$OR_lower)
+upper_ci_ind <- as.numeric(nm_forest$OR_higher)
+labels_ind <- nm_forest$each_factor
 
 base_data <-
   tibble::tibble(
@@ -927,7 +927,7 @@ base_data <-
     )
 
 
-forest_data <-
+forest_data_ind <-
   matrix(
     c(rep("", 15),
       lower_ci,
@@ -938,10 +938,10 @@ forest_data <-
   )
 
 nm_ind_plot<- forestplot(
-  labeltext = labels, 
-  mean = coefficients, 
-  lower = lower_ci, 
-  upper = upper_ci,
+  labeltext = labels_ind , 
+  mean = coefficients_ind , 
+  lower = lower_ci_ind , 
+  upper = upper_ci_ind ,
   clip = c(0.1,3.0),
   xlab = "OR for Urban/Rural when accounting for each factor",
   zero = 1,
@@ -952,7 +952,7 @@ nm_ind_plot<- forestplot(
 
 ###################################
 
-pdf("nm_ind_plot.pdf", width = 10, height = 5)
+pdf("nm_ind_forestplot.pdf", width = 10, height = 5)
 print(nm_ind_plot)
 dev.off()
 
