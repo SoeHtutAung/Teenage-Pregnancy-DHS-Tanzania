@@ -6,11 +6,12 @@ library(tidyverse)
 library(plyr)
 library(sf)
 library(ggsci)
+library(forestplot)
 
 
 #######LOAD DATA
 ##read births data set
-#births_BR <- read_dta("C:/Users/Saund/OneDrive - London School of Hygiene and Tropical Medicine/TZDHS/Survey Data/Births/TZBR82FL.DTA")
+births_BR <- read_dta("C:/Users/Saund/OneDrive - London School of Hygiene and Tropical Medicine/TZDHS/Survey Data/Births/TZBR82FL.DTA")
 #births_BR <- read_dta("~/Downloads/UNICEF DATA/Births/TZBR82FL.DTA") # for nikki 
 
 ##load txt file with variable codes from code list
@@ -91,8 +92,6 @@ births_last3years <- births_last3years %>% mutate(
     m19 %in% c(9996,9998) ~ NA
   )
 )
-
-
 
 
 count(births_last3years$m19_cat)
@@ -234,6 +233,10 @@ design <- survey::svydesign(id=~v001,
                             data= births_clean)
 
 
+##Urban/rural numbers
+
+svytable(~v025, design = design)
+
 #1. Number of pregnancies with anaemia (v457) 
 count(births_clean$v457)
 
@@ -243,6 +246,8 @@ anaemia$prop<- round(prop.table(svytable(~ v457 + v025, design = design) ,margin
 chi_anaemia <- (summary(svytable(~ v457 + v025, design = design), statistic = "Chisq"))
 chi_anaemia$statistic$statistic
 chi_anaemia$statistic$p.value
+coef(svymean(~v457, design, na.rm = TRUE)%>% round(4))*100 
+anaemia$totci<- confint(svymean(~factor(v457), design, na.rm = TRUE))%>% round(4)*100
 
 births_clean$v457<- relevel(factor(births_clean$v457), ref = "4")
 
@@ -489,8 +494,466 @@ table(births_clean$v445, births_clean$neo_mort, useNA = "always")
 #Result: Neo_mort YES (126), 68 are recorded to be NA for v457, v456
 #About 2782 aren't recorded as they were not interviewed 
 
-table(teendata$contra_current, teendata$contra_future, useNA = "always") # can't identify exact numbers
-round(svytable(~contra_future + v025, design = dhs, na.action = na.pass)/1e6,0) # this table is used to
+#Run nm_master.R document for "births_clean" dataset
 
+########################  new - TABLE 2 - ODDS RATIO ######################## 
+
+#Setting up survey package 
+births_clean$wt <- births_clean$v005/1000000
+
+design <- survey::svydesign(id=~v001, 
+                            strata =~v023, 
+                            weights=~wt,
+                            data= births_clean)
+
+#Model 1. Rural / Urban odds ratio
+model_1 <- svyglm(factor(neo_mort) ~ factor(v025), 
+                  design = design, 
+                  family = quasibinomial(), 
+                  na.action = na.exclude)
+
+print(exp(coef(model_1)[2])) %>% round(2)
+print (exp (confint(model_1)[2, ])) %>% round(2)
+print(summary(model_1)$coefficients[2,"Pr(>|t|)"]) %>% round(2)
+
+
+######################DIFFERENT MODELS WITH DIFFERENT CATAGOREIS#######################
+
+##model2_2 ##NEW
+# mother's age at pregnancy
+# literacy re-leveled
+# marital status re-leveled
+# Wealth quintile
+
+
+model_2_2 <- svyglm(factor(neo_mort) ~ factor(v025) + # rural/urban
+                      mum_age_pregnancy + # mother's age at pregnancy - numeric
+                      v155_cat + # literacy re-leveled - factor
+                      v501_cat + # marital status re-leveled - factor
+                      factor(v190), # Wealth quintile - not leveled - factor
+                    design = design, 
+                    family = quasibinomial(), 
+                    na.action = na.omit)
+
+print(exp(coef(model_2_2)[2])) %>% round(2)
+print (exp (confint(model_2_2)[2, ])) %>% round(2)
+print(summary(model_2_2)$coefficients[2,"Pr(>|t|)"]) %>% round(2)
+
+
+##model maternal factors ##NEW##
+model_3_2 <- svyglm(factor(neo_mort) ~ factor(v025) + # rural/urban
+                      mum_age_pregnancy + # mother's age at pregnancy - numeric
+                      v155_cat + # literacy re-leveled - factor
+                      v501_cat + # marital status re-leveled - factor
+                      factor(v190) + # Wealth quintile - not leveled - factor
+                      factor(v463aa_cat) + # smoking - factor
+                      v445 + # BMI - numeric  
+                      factor(s1125), #ever had hypertension - not leveled - factor 
+                    design = design, 
+                    family = quasibinomial(), 
+                    na.action = na.omit)
+
+print(exp(coef(model_3_2)[2])) %>% round(2)
+print (exp (confint(model_3_2)[2, ])) %>% round(2)
+print(summary(model_3_2)$coefficients[2,"Pr(>|t|)"]) %>% round(2)
+
+##model pregnancy ##NEW
+
+model_4_2 <-  svyglm(factor(neo_mort) ~ factor(v025) + # rural/urban
+                       mum_age_pregnancy + # mother's age at pregnancy - numeric
+                       v155_cat + # literacy re-leveled - factor
+                       v501_cat + # marital status re-leveled - factor
+                       factor(v463aa_cat) + # smoking - factored
+                       v445 + # BMI - numeric
+                       factor(v190) + # Wealth quintile - not leveled - factored
+                       factor(s1125) +  #ever had hypertension - not leveled - factor 
+                       ANC_visits + #number of ANC visits - factor
+                       v501_cat + #Assistance at delivery - levels + factor
+                       m15 + #Place of delivery - levels + factor
+                       factor(m17) + #Mode of delivery (C-section?) - not leveled + factored
+                       m19, #Birth Weight - numeric
+                     design = design, 
+                     family = quasibinomial(), 
+                     na.action = na.omit)
+
+print(exp(coef(model_4_2)[2])) %>% round(2)
+print (exp (confint(model_4_2)[2, ])) %>% round(2)
+print(summary(model_4_2)$coefficients[2,"Pr(>|t|)"]) %>% round(2)
+
+##model previous preganacies######################
+
+model_5_2 <-  svyglm(factor(neo_mort) ~ factor(v025) + # rural/urban
+                       mum_age_pregnancy + # mother's age at pregnancy - numeric
+                       v155_cat + # literacy re-leveled - factor
+                       v501_cat + # marital status re-leveled - factor
+                       factor(v463aa_cat) + # smoking - factored
+                       v445 + # BMI - numeric
+                       factor(v190) + # Wealth quintile - not leveled - factored
+                       factor(s1125) +  #ever had hypertension - not leveled - factor 
+                       ANC_visits + #number of ANC visits - factor
+                       v501_cat + #Assistance at delivery - levels + factor
+                       m15 + #Place of delivery - levels + factor
+                       factor(m17) + #Mode of delivery (C-section?) - not leveled + factored
+                       m19+ #Birth Weight - numeric
+                       v245_cat + # pregnancy losses - re-leveled + factored
+                       v201, #Multiple pregnancies - not leveled + numeric
+                     design = design, 
+                     family = quasibinomial(), 
+                     na.action = na.omit)
+
+print(exp(coef(model_5_2)[2])) %>% round(2)
+print (exp (confint(model_5_2)[2, ])) %>% round(2)
+print(summary(model_5_2)$coefficients[2,"Pr(>|t|)"]) %>% round(2)
+
+######################## Figure to illustrate table 2  ######################## 
+# Assuming you have model_1, model_2, model_3, model_4, model_5 fitted
+
+# Vectors for storing the exponentiated coefficients and their confidence intervals
+coefficients <- c(0.73, 0.86, 1.50, 1.54, 1.55)
+lower_ci <- c(0.46, 0.48, 0.58, 0.59, 0.38)
+upper_ci <- c(1.16, 1.53, 3.91, 4.01, 4.09)
+labels <- c("Model 1", "Model 2", "Model 3", "Model 4", "Model 4")
+
+forest_data <- matrix(c(rep("", 5), lower_ci, coefficients, upper_ci), 
+                      ncol = 5, byrow = FALSE)
+
+forestplot(labeltext = labels, 
+           mean = coefficients, 
+           lower = lower_ci, 
+           upper = upper_ci,
+           xlab = "Coefficient Value",
+           zero = 0,
+           lineheight = "auto",
+           boxsize = 0.5,
+           col = fpColors(box = "royalblue", line = "darkblue", summary = "royalblue"))
+
+
+
+
+
+######################## Figure of individual ORs  ######################## 
+#ORs of Rural / Urban coefficient OR changes by individual variables
+
+### FOR FOREST PLOT#####
+
+nm_forest <- as.data.frame(matrix(nrow=15,ncol=5))
+names(nm_forest) <- c("each_factor","p-value","ORadj","OR_lower","OR_higher")
+
+nm_forest[1,] <-
+  c("Residence","NA",
+    exp(coef(model_1))[2],
+    exp(confint(model_1))[2,1],
+    exp(confint(model_1))[2,2]
+  )
+
+#Creating individual models with v025 (which are significant from table one)
+##1.AGE#######################
+
+model_age <- svyglm(factor(neo_mort) ~ factor(v025) + # rural/urban
+                      mum_age_pregnancy, # mother's age at pregnancy - numeric
+                     design = design, 
+                    family = quasibinomial(), 
+                    na.action = na.omit)
+
+print(exp(coef(model_age)[2])) %>% round(2)
+print (exp (confint(model_age)[2, ])) %>% round(2)
+print(summary(model_age)$coefficients[2,"Pr(>|t|)"]) %>% round(2)
+
+nm_forest[2,] <-
+  c("Age","NA",
+    exp(coef(model_age))[2],
+    exp(confint(model_age))[2,1],
+    exp(confint(model_age))[2,2]
+  )
+
+##2.LITERACY##################
+
+model_edu <- svyglm(factor(neo_mort) ~ factor(v025) + # rural/urban
+                      v155_cat, # literacy re-leveled - factor
+                    design = design, 
+                    family = quasibinomial(), 
+                    na.action = na.omit)
+
+print(exp(coef(model_edu)[2])) %>% round(2)
+print (exp (confint(model_edu)[2, ])) %>% round(2)
+print(summary(model_edu)$coefficients[2,"Pr(>|t|)"]) %>% round(2)
+
+nm_forest[3,] <-
+  c("Literacy","NA",
+    exp(coef(model_edu))[2],
+    exp(confint(model_edu))[2,1],
+    exp(confint(model_edu))[2,2]
+  )
+
+
+##3.MARITAL STATUS##############
+
+model_mar <- svyglm(factor(neo_mort) ~ factor(v025) + # rural/urban
+                      v501_cat, # marital status re-leveled - factor
+                    design = design, 
+                    family = quasibinomial(), 
+                    na.action = na.omit)
+
+print(exp(coef(model_mar)[2])) %>% round(2)
+print (exp (confint(model_mar)[2, ])) %>% round(2)
+print(summary(model_mar)$coefficients[2,"Pr(>|t|)"]) %>% round(2)
+
+nm_forest[4,] <-
+  c("Marital status","NA",
+    exp(coef(model_mar))[2],
+    exp(confint(model_mar))[2,1],
+    exp(confint(model_mar))[2,2]
+  )
+
+
+##4.WEALTH#####################
+model_wealth <- svyglm(factor(neo_mort) ~ factor(v025) + # rural/urban
+                         factor(v190), # Wealth quintile - not leveled - factored
+                    design = design, 
+                    family = quasibinomial(), 
+                    na.action = na.omit)
+
+print(exp(coef(model_wealth)[2])) %>% round(2)
+print (exp (confint(model_wealth)[2, ])) %>% round(2)
+print(summary(model_wealth)$coefficients[2,"Pr(>|t|)"]) %>% round(2)
+
+nm_forest[5,] <-
+  c("Wealth","NA",
+    exp(coef(model_wealth))[2],
+    exp(confint(model_wealth))[2,1],
+    exp(confint(model_wealth))[2,2]
+  )
+
+##5.SMOKING####################
+model_smo <- svyglm(factor(neo_mort) ~ factor(v025) + # rural/urban
+                      factor(v463aa_cat),# smoking - factored
+                    design = design, 
+                    family = quasibinomial(), 
+                    na.action = na.omit)
+
+print(exp(coef(model_smo)[2])) %>% round(2)
+print (exp (confint(model_smo)[2, ])) %>% round(2)
+print(summary(model_smo)$coefficients[2,"Pr(>|t|)"]) %>% round(2)
+
+nm_forest[6,] <-
+  c("Smoking","NA",
+    exp(coef(model_smo))[2],
+    exp(confint(model_smo))[2,1],
+    exp(confint(model_smo))[2,2]
+  )
+
+
+##6.HTN########################
+model_htn <- svyglm(factor(neo_mort) ~ factor(v025) + # rural/urban
+                      factor(s1125), #ever had hypertension - not leveled - factor 
+                    design = design, 
+                    family = quasibinomial(), 
+                    na.action = na.omit)
+
+print(exp(coef(model_htn)[2])) %>% round(2)
+print (exp (confint(model_htn)[2, ])) %>% round(2)
+print(summary(model_htn)$coefficients[2,"Pr(>|t|)"]) %>% round(2)
+
+nm_forest[7,] <-
+  c("Hypertension","NA",
+    exp(coef(model_htn))[2],
+    exp(confint(model_htn))[2,1],
+    exp(confint(model_htn))[2,2]
+  )
+
+
+##7.BMI#########################
+model_bmi <- svyglm(factor(neo_mort) ~ factor(v025) + # rural/urban
+                      v445,# BMI - numeric
+                    design = design, 
+                    family = quasibinomial(), 
+                    na.action = na.omit)
+
+print(exp(coef(model_bmi)[2])) %>% round(2)
+print (exp (confint(model_bmi)[2, ])) %>% round(2)
+print(summary(model_bmi)$coefficients[2,"Pr(>|t|)"]) %>% round(2)
+
+nm_forest[8,] <-
+  c("BMI","NA",
+    exp(coef(model_bmi))[2],
+    exp(confint(model_bmi))[2,1],
+    exp(confint(model_bmi))[2,2]
+  )
+
+
+##8.ANC############
+model_anc <- svyglm(factor(neo_mort) ~ factor(v025) + # rural/urban
+                      ANC_visits,#number of ANC visits - factor
+                    design = design, 
+                    family = quasibinomial(), 
+                    na.action = na.omit)
+
+print(exp(coef(model_anc)[2])) %>% round(2)
+print (exp (confint(model_anc)[2, ])) %>% round(2)
+print(summary(model_anc)$coefficients[2,"Pr(>|t|)"]) %>% round(2)
+
+nm_forest[9,] <-
+  c("Antenatal Care Visits","NA",
+    exp(coef(model_anc))[2],
+    exp(confint(model_anc))[2,1],
+    exp(confint(model_anc))[2,2]
+  )
+
+##9.POD###########
+model_pod <- svyglm(factor(neo_mort) ~ factor(v025) + # rural/urban
+                      m15,#Place of delivery - levels + factor
+                    design = design, 
+                    family = quasibinomial(), 
+                    na.action = na.omit)
+
+print(exp(coef(model_pod)[2])) %>% round(2)
+print (exp (confint(model_pod)[2, ])) %>% round(2)
+print(summary(model_pod)$coefficients[2,"Pr(>|t|)"]) %>% round(2)
+
+nm_forest[10,] <-
+  c("Place of delivery","NA",
+    exp(coef(model_pod))[2],
+    exp(confint(model_pod))[2,1],
+    exp(confint(model_pod))[2,2]
+  )
+
+##10.AAD#######
+model_aad <- svyglm(factor(neo_mort) ~ factor(v025) + # rural/urban
+                      v501_cat,#Assistance at delivery - levels + factor
+                    design = design, 
+                    family = quasibinomial(), 
+                    na.action = na.omit)
+
+print(exp(coef(model_aad)[2])) %>% round(2)
+print (exp (confint(model_aad)[2, ])) %>% round(2)
+print(summary(model_aad)$coefficients[2,"Pr(>|t|)"]) %>% round(2)
+
+nm_forest[11,] <-
+  c("Assistance at delivery","NA",
+    exp(coef(model_aad))[2],
+    exp(confint(model_aad))[2,1],
+    exp(confint(model_aad))[2,2]
+  )
+
+
+##11. MOD ###########
+model_mod <- svyglm(factor(neo_mort) ~ factor(v025) + # rural/urban
+                      factor(m17), #Mode of delivery (C-section?) - not leveled + factored
+                    design = design, 
+                    family = quasibinomial(), 
+                    na.action = na.omit)
+
+print(exp(coef(model_mod)[2])) %>% round(2)
+print (exp (confint(model_mod)[2, ])) %>% round(2)
+print(summary(model_mod)$coefficients[2,"Pr(>|t|)"]) %>% round(2)
+
+nm_forest[12,] <-
+  c("Mode of delivery","NA",
+    exp(coef(model_mod))[2],
+    exp(confint(model_mod))[2,1],
+    exp(confint(model_mod))[2,2]
+  )
+
+
+##12. BW #############
+model_bw <- svyglm(factor(neo_mort) ~ factor(v025) + # rural/urban
+                     m19, #Birth Weight - numeric
+                     design = design, 
+                     family = quasibinomial(), 
+                     na.action = na.omit)
+
+print(exp(coef(model_bw)[2])) %>% round(2)
+print (exp (confint(model_bw)[2, ])) %>% round(2)
+print(summary(model_bw)$coefficients[2,"Pr(>|t|)"]) %>% round(2)
+
+nm_forest[13,] <-
+  c("Birthweight","NA",
+    exp(coef(model_bw))[2],
+    exp(confint(model_bw))[2,1],
+    exp(confint(model_bw))[2,2]
+  )
+
+
+##13. TOTAL PREG###########
+model_tot <- svyglm(factor(neo_mort) ~ factor(v025) + # rural/urban
+                      v201, #Multiple pregnancies - not leveled + numeric
+                    design = design, 
+                    family = quasibinomial(), 
+                    na.action = na.omit)
+
+print(exp(coef(model_tot)[2])) %>% round(2)
+print (exp (confint(model_tot)[2, ])) %>% round(2)
+print(summary(model_tot)$coefficients[2,"Pr(>|t|)"]) %>% round(2)
+
+nm_forest[14,] <-
+  c("Total preg","NA",
+    exp(coef(model_tot))[2],
+    exp(confint(model_tot))[2,1],
+    exp(confint(model_tot))[2,2]
+  )
+
+
+##14. LOSSES #############
+model_loss <- svyglm(factor(neo_mort) ~ factor(v025) + # rural/urban
+                       v245_cat,# pregnancy losses - re-leveled + factored
+                       design = design, 
+                    family = quasibinomial(), 
+                    na.action = na.omit)
+
+print(exp(coef(model_loss)[2])) %>% round(2)
+print (exp (confint(model_loss)[2, ])) %>% round(2)
+print(summary(model_loss)$coefficients[2,"Pr(>|t|)"]) %>% round(2)
+
+nm_forest[15,] <-
+  c("Prev preg losses","NA",
+    exp(coef(model_loss))[2],
+    exp(confint(model_loss))[2,1],
+    exp(confint(model_loss))[2,2]
+  )
+
+
+# Vectors for storing the exponentiated coefficients and their confidence intervals
+coefficients <- as.numeric(nm_forest$ORadj)
+lower_ci <- as.numeric(nm_forest$OR_lower)
+upper_ci <- as.numeric(nm_forest$OR_higher)
+labels <- nm_forest$each_factor
+
+base_data <-
+  tibble::tibble(
+    mean  = nm_forest$ORadj,
+    lower = nm_forest$OR_lower,
+    upper = nm_forest$OR_higher,
+    labels = nm_forest$each_factor
+    )
+
+
+forest_data <-
+  matrix(
+    c(rep("", 15),
+      lower_ci,
+      coefficients,
+      upper_ci),
+    ncol = 4,
+    byrow = FALSE
+  )
+
+nm_ind_plot<- forestplot(
+  labeltext = labels, 
+  mean = coefficients, 
+  lower = lower_ci, 
+  upper = upper_ci,
+  clip = c(0.1,3.0),
+  xlab = "OR for Urban/Rural when accounting for each factor",
+  zero = 1,
+  lineheight = "auto",
+  boxsize = 0.5,
+  col = fpColors(box = "darkred", line = "grey", summary = "royalblue")
+)
+
+###################################
+
+pdf("nm_ind_plot.pdf", width = 10, height = 5)
+print(nm_ind_plot)
+dev.off()
 
 

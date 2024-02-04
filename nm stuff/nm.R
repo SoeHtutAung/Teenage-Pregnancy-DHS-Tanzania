@@ -416,6 +416,7 @@ library(tidyverse)
 library(plyr)
 library(sf)
 library(ggsci)
+library(forestplot)
 
 
 #######LOAD DATA
@@ -832,6 +833,8 @@ chi_lowbw$statistic$statistic
 chi_lowbw$statistic$p.value
 
 births_clean$m19_cat<- relevel(factor(births_clean$m19_cat), ref = "notlowbw")
+
+
 ############### Checking for missingness for table 2 regression ####################
 
 # Checking initial numbers 
@@ -895,9 +898,6 @@ table(births_clean$v456, births_clean$neo_mort, useNA = "always")
 table(births_clean$v445, births_clean$neo_mort, useNA = "always")
 #Result: Neo_mort YES (126), 68 are recorded to be NA for v457, v456
 #About 2782 aren't recorded as they were not interviewed 
-
-table(teendata$contra_current, teendata$contra_future, useNA = "always") # can't identify exact numbers
-round(svytable(~contra_future + v025, design = dhs, na.action = na.pass)/1e6,0) # this table is used to
 
 
 
