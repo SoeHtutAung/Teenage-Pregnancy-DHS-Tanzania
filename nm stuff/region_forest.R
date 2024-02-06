@@ -36,6 +36,8 @@ new <- new %>%
     v024 == 55 ~ "Kusini Pemba"
     ))
 
+mean(new$nm)
+
 urban_nm <- new %>% select(v025, region, nm) %>% filter(v025 == 1)
 rural_nm <- new %>% select(v024, v025, region, nm) %>% filter(v025 == 2)
 cleaned_region <- merge(urban_nm, rural_nm, by = "region") %>% 
@@ -50,7 +52,7 @@ cleaned_region$v024 <-
 
 regions <-
   data.frame(
-    region = rep(regional_data$v024,2),
+    region = rep(cleaned_region$region,2),
     residence = c( rep("urban", ))
   )
 
@@ -62,9 +64,9 @@ regional_data %>%
   geom_point(aes(y = rural, size = 3), colour="green", show.legend = FALSE) +
   geom_point(aes(y = urban, size = 3), colour="darkgreen", show.legend = FALSE) +
   coord_flip() +
-  ylab("Stillbirth Rate (per 1000 Births)") +
+  ylab("Neonatal Mortality Rate (per 1000 Births)") +
   scale_x_discrete(limits=rev) +
   scale_y_continuous(breaks = seq(0,120,20)) +
   theme_bw(base_size = 16) +
   theme(axis.title.y = element_blank()) +
-  geom_hline(yintercept = 20, linetype = "dashed", colour = "blue")
+  geom_hline(yintercept = 23, linetype = "dashed", colour = "blue")

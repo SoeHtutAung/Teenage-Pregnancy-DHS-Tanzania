@@ -916,13 +916,6 @@ nm_forest[15,] <-
     exp(confint(model_loss))[2,2]
   )
 
-###
-library(forestplot)
-
-
-###
-
-
 
 # Vectors for storing the exponentiated coefficients and their confidence intervals
 coefficients_ind <- as.numeric(nm_forest$ORadj)
