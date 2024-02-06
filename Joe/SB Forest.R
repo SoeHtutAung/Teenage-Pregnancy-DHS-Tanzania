@@ -19,21 +19,13 @@ OR_df <-
   mutate(
     wt = v005/1e6,
     stillbirth = ifelse(p32==2, 1, 0),
-    residence = relevel(factor(v025), ref=2),
     matage = cut((p3-v011)/12, breaks = c(0,20,25,35,50), right = FALSE),
-    gest = relevel(
-      cut(p20, breaks = c(0,8,10), right = TRUE), ref = 2
-      ),
-    anc = ifelse(
-      is.na(m14) | m14==98, "unknown" ,
-      cut(m14, breaks = c(0,1,4,98,100), right = FALSE)
+    anc4 = ifelse(
+      is.na(m14) | m14<4, 0 , 1
     ),
     emp_year = ifelse(v731==0, 0, 1),
     edu = factor(
       ifelse( v106==0,0, ifelse(v106==1,1,2) )
-    ),
-    bmi = relevel(
-      cut(v445, breaks = c(1200, 1850, 2500, 3000, 6000)), ref = 2
     ),
     marr = factor(
       ifelse(
@@ -42,7 +34,9 @@ OR_df <-
           v501==1 | v501==2, "Current", "Formerly"
         )
       )
-    )
+    ),
+    married = ifelse( v501==1 | v501==2 , 1, 0),
+    wealth = factor(v190)
   )
 
 OR_design <-
@@ -56,119 +50,124 @@ OR_design <-
 sb_forest <- as.data.frame(matrix(nrow=9,ncol=5))
 names(sb_forest) <- c("each_factor","p-value","ORadj","OR_lower","OR_higher")
 
-glm_res <- svyglm(stillbirth~residence, OR_design, family=quasibinomial())
+glm_res <- svyglm(stillbirth~v025, OR_design, family=quasibinomial())
 sb_forest[1,] <-
-  c("residence","NA",
+  c("Rural residence","N/A",
     exp(coef(glm_res))[2],
     exp(confint(glm_res))[2,1],
     exp(confint(glm_res))[2,2]
   )
 
-glm_age <- svyglm(stillbirth~residence+matage, OR_design, family=quasibinomial())
+glm_age <- svyglm(stillbirth~v025*matage, OR_design, family=quasibinomial())
 sb_forest[2,] <-
-  c("age","0.003",
+  c("Mother's Age","0.003",
     exp(coef(glm_age))[[2]],
     exp(confint(glm_age))[[2,1]],
     exp(confint(glm_age))[[2,2]]
   )
 
-glm_edu <- svyglm(stillbirth~residence+edu, OR_design, family=quasibinomial())
+glm_edu <- svyglm(stillbirth~v025*edu, OR_design, family=quasibinomial())
 sb_forest[3,] <-
-  c("edu","<0.001",
+  c("Education","<0.001",
     exp(coef(glm_edu))[[2]],
     exp(confint(glm_edu))[[2,1]],
     exp(confint(glm_edu))[[2,2]]
   )
 
-glm_marr <- svyglm(stillbirth~residence+marr, OR_design, family=quasibinomial())
-sb_forest[6,] <-
-  c("married","0.002",
-    exp(coef(glm_marr))[[2]],
-    exp(confint(glm_marr))[[2,1]],
-    exp(confint(glm_marr))[[2,2]]
+# glm_marr <- svyglm(stillbirth~v025*marr, OR_design, family=quasibinomial())
+# sb_forest[4,] <-
+#   c("Married","0.002",
+#     exp(coef(glm_marr))[[2]],
+#     exp(confint(glm_marr))[[2,1]],
+#     exp(confint(glm_marr))[[2,2]]
+#   )
+
+glm_married <- svyglm(stillbirth~v025*married, OR_design, family=quasibinomial())
+sb_forest[4,] <-
+  c("Married","0.002",
+    exp(coef(glm_married))[[2]],
+    exp(confint(glm_married))[[2,1]],
+    exp(confint(glm_married))[[2,2]]
   )
 
-glm_wealth <- svyglm(stillbirth~residence+v190, OR_design, family=quasibinomial())
-sb_forest[7,] <-
-  c("wealth","<0.001",
+glm_wealth <- svyglm(stillbirth~v025*wealth, OR_design, family=quasibinomial())
+sb_forest[5,] <-
+  c("Wealth Quintile","<0.001",
     exp(coef(glm_wealth))[[2]],
     exp(confint(glm_wealth))[[2,1]],
     exp(confint(glm_wealth))[[2,2]]
   )
 
-glm_emp <- svyglm(stillbirth~residence+emp_year, OR_design, family=quasibinomial())
-sb_forest[8,] <-
-  c("employment","0.021",
+glm_emp <- svyglm(stillbirth~v025*emp_year, OR_design, family=quasibinomial())
+sb_forest[6,] <-
+  c("Employment","0.021",
     exp(coef(glm_emp))[[2]],
     exp(confint(glm_emp))[[2,1]],
     exp(confint(glm_emp))[[2,2]]
   )
 
-glm_hyp <- svyglm(stillbirth~residence+s1125, OR_design, family=quasibinomial())
-sb_forest[4,] <-
-  c("hypertension","<0.001",
+glm_hyp <- svyglm(stillbirth~v025*s1125, OR_design, family=quasibinomial())
+sb_forest[7,] <-
+  c("Hypertension","<0.001",
     exp(coef(glm_hyp))[[2]],
     exp(confint(glm_hyp))[[2,1]],
     exp(confint(glm_hyp))[[2,2]]
   )
 
-glm_mode <- svyglm(stillbirth~residence+m17, OR_design, family=quasibinomial())
-sb_forest[5,] <-
-  c("c-section","<0.001",
+glm_mode <- svyglm(stillbirth~v025*m17, OR_design, family=quasibinomial())
+sb_forest[8,] <-
+  c("C-Section","<0.001",
     exp(coef(glm_mode))[[2]],
     exp(confint(glm_mode))[[2,1]],
     exp(confint(glm_mode))[[2,2]]
   )
 
-glm_gest <- svyglm(stillbirth~residence+anc4, OR_design, family=quasibinomial())
+glm_anc4 <- svyglm(stillbirth~v025*anc4, OR_design, family=quasibinomial())
 sb_forest[9,] <-
-  c("4+ ANC Visits","0.011",
-    exp(coef(glm_gest))[[2]],
-    exp(confint(glm_gest))[[2,1]],
-    exp(confint(glm_gest))[[2,2]]
+  c("4+ ANC visits","<0.001",
+    exp(coef(glm_anc4))[[2]],
+    exp(confint(glm_anc4))[[2,1]],
+    exp(confint(glm_anc4))[[2,2]]
   )
 
 ######################## Figure to illustrate changes in OR  ###########
 
 library(forestplot)
 
-# Vectors for storing the exponentiated coefficients and their confidence intervals
-coefficients <- as.numeric(sb_forest$ORadj)
-lower_ci <- as.numeric(sb_forest$OR_lower)
-upper_ci <- as.numeric(sb_forest$OR_higher)
-labels <- sb_forest$each_factor
+# # Vectors for storing the exponentiated coefficients and their confidence intervals
 
 base_data <-
   tibble::tibble(
-    mean  = sb_forest$ORadj,
-    lower = sb_forest$OR_lower,
-    upper = sb_forest$OR_higher,
+    mean  = as.numeric(sb_forest$ORadj),
+    lower = as.numeric(sb_forest$OR_lower),
+    upper = as.numeric(sb_forest$OR_higher),
     labels = sb_forest$each_factor,
-    OR = c(rep(NA, 8)
+    OR = c("0.66",
+           "1.27", "1.47", "0.45", "0.37",
+           "0.65", "0.71", "0.55", "0.46"
     )
   )
 
-forest_data <-
-  matrix(
-    c(rep("", 11),
-      lower_ci,
-      coefficients,
-      upper_ci),
-    ncol = 4,
-    byrow = FALSE
-  )
+base_data %>%
+  forestplot(
+    title = "OR for Rural vs Urban Rates of Stillbirth by Confounding Factor",
+    labeltext = c(labels, OR),
+    clip = c(0.1,2.5),
+    zero = 1,
+    vertices = TRUE,
+    lineheight = "auto",
+    boxsize = 0.5
+  ) %>%
+  fp_add_header(
+    labels = c("", "Factor"),
+    OR = c("", "Residence OR")
+  ) %>%
+  fp_set_style(
+    box = "#FA8128",
+    line = "darkorange",
+    summary = "#FA8128",
+    txt_gp = fpTxtGp(
+      ticks = gpar(cex = 1),
+      xlab  = gpar(cex = 1.5)))
 
-forestplot(
-  labeltext = labels, 
-  mean = coefficients, 
-  lower = lower_ci, 
-  upper = upper_ci,
-  clip = c(0.1,3.0),
-  xlab = "OR for Urban/Rural when accounting for each factor",
-  zero = 1,
-  lineheight = "auto",
-  boxsize = 0.5,
-  col = fpColors(box = "royalblue", line = "darkblue", summary = "royalblue")
-)
-
-###################################
+####################################
