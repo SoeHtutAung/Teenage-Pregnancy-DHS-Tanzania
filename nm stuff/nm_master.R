@@ -12,11 +12,11 @@ library(forestplot)
 #######LOAD DATA
 ##read births data set
 births_BR <- read_dta("C:/Users/Saund/OneDrive - London School of Hygiene and Tropical Medicine/TZDHS/Survey Data/Births/TZBR82FL.DTA")
-#births_BR <- read_dta("~/Downloads/UNICEF DATA/Births/TZBR82FL.DTA") # for nikki 
+births_BR <- read_dta("~/Downloads/UNICEF DATA/Births/TZBR82FL.DTA") # for nikki 
 
 ##load txt file with variable codes from code list
 #NM_variables <- readLines("NM_variables.txt")
-#NM_variables <- readLines("/Users/nikkiyu/Downloads/2 Data Challenge/unicef/nm stuff/NM_variables.txt") #for nikki
+NM_variables <- readLines("/Users/nikkiyu/Downloads/2 Data Challenge/unicef/nm stuff/NM_variables.txt") #for nikki
 
 ##FILTER DATA BY VARIABLE CODES
 ##use txt file of codes to filter births dataset
@@ -223,7 +223,7 @@ dict_births_BR <- data.frame(
   description = variable_labels_BR_clean
 )
 
-######################## NIKKI SECTION - TABLE 1 CONTEXT ######################## 
+######################## TABLE 1 CONTEXT - OR, Chi squared, P values ######################## 
 #Setting up survey package 
 births_clean$wt <- births_clean$v005/1000000
 
@@ -517,9 +517,9 @@ print (exp (confint(model_1)[2, ])) %>% round(2)
 print(summary(model_1)$coefficients[2,"Pr(>|t|)"]) %>% round(2)
 
 
-######################DIFFERENT MODELS WITH DIFFERENT CATAGOREIS#######################
+##############!!!!!!!!!NIKKI CHOOSE THIS ONE - DIFFERENT MODELS WITH DIFFERENT CATAGOREIS#######################
 
-##model2_2 ##NEW
+##model2_2 ##NEW - SOCIO-DEMOGRAPHIC FACTORS
 # mother's age at pregnancy
 # literacy re-leveled
 # marital status re-leveled
@@ -605,6 +605,7 @@ print(exp(coef(model_5_2)[2])) %>% round(2)
 print (exp (confint(model_5_2)[2, ])) %>% round(2)
 print(summary(model_5_2)$coefficients[2,"Pr(>|t|)"]) %>% round(2)
 
+
 ######################## Figure to illustrate table 2  ######################## 
 # Assuming you have model_1, model_2, model_3, model_4, model_5 fitted
 
@@ -648,6 +649,7 @@ nm_forest[1,] <-
     exp(confint(model_1))[2,1],
     exp(confint(model_1))[2,2]
   )
+
 
 #Creating individual models with v025 (which are significant from table one)
 ##1.AGE#######################
@@ -914,6 +916,13 @@ nm_forest[15,] <-
     exp(confint(model_loss))[2,2]
   )
 
+###
+library(forestplot)
+
+
+###
+
+
 
 # Vectors for storing the exponentiated coefficients and their confidence intervals
 coefficients_ind <- as.numeric(nm_forest$ORadj)
@@ -921,43 +930,72 @@ lower_ci_ind <- as.numeric(nm_forest$OR_lower)
 upper_ci_ind <- as.numeric(nm_forest$OR_higher)
 labels_ind <- nm_forest$each_factor
 
-base_data <-
+base_data_nm <-
   tibble::tibble(
-    mean  = nm_forest$ORadj,
-    lower = nm_forest$OR_lower,
-    upper = nm_forest$OR_higher,
-    labels = nm_forest$each_factor
-    )
+    mean  = as.numeric(nm_forest$ORadj),
+    lower = as.numeric(nm_forest$OR_lower),
+    upper = as.numeric(nm_forest$OR_higher),
+    labels = nm_forest$each_factor, 
+    OR = c("0.73", "0.73", "0.72", "0.75", "0.85", 
+           "0.81", "0.73", "1.00", "0.68", "0.73", 
+           "0.75", "0.77", "0.56", "0.68", "0.74"
+    ))
 
+#NEW FOREST DESIGN
+base_data %>%
+  forestplot(
+    title = "OR for Rural vs Urban Rates of Neonatal Mortality by Confounding Factor",
+    labeltext = c(labels, OR),
+    clip = c(0.1,2.5),
+    zero = 1,
+    vertices = TRUE,
+    lineheight = "auto",
+    boxsize = 0.5
+  ) %>%
+  fp_add_header(
+    labels = c("", "Factor"),
+    OR = c("", "Residence OR")
+  ) %>%
+  fp_set_style(
+    box = "#74B72E",
+    line = "darkgreen",
+    summary = "#74B72E",
+    txt_gp = fpTxtGp(
+      ticks = gpar(cex = 1),
+      xlab  = gpar(cex = 1.5)))
 
-forest_data_ind <-
-  matrix(
-    c(rep("", 15),
-      lower_ci,
-      coefficients,
-      upper_ci),
-    ncol = 4,
-    byrow = FALSE
-  )
-
-nm_ind_plot<- forestplot(
-  labeltext = labels_ind , 
-  mean = coefficients_ind , 
-  lower = lower_ci_ind , 
-  upper = upper_ci_ind ,
-  clip = c(0.1,3.0),
-  xlab = "OR for Urban/Rural when accounting for each factor",
-  zero = 1,
-  lineheight = "auto",
-  boxsize = 0.5,
-  col = fpColors(box = "darkred", line = "grey", summary = "royalblue")
-)
-
-###################################
-
+#Saving forestplot
 pdf("nm_ind_forestplot.pdf", width = 10, height = 5)
 print(nm_ind_plot)
 dev.off()
+
+
+##OLD FOREST DESIGN
+# forest_data_ind <-
+#   matrix(
+#     c(rep("", 15),
+#       lower_ci,
+#       coefficients,
+#       upper_ci),
+#     ncol = 4,
+#     byrow = FALSE
+#   )
+# 
+# nm_ind_plot<- forestplot(
+#   labeltext = labels_ind , 
+#   mean = coefficients_ind , 
+#   lower = lower_ci_ind , 
+#   upper = upper_ci_ind ,
+#   clip = c(0.1,3.0),
+#   xlab = "OR for Urban/Rural when accounting for each factor",
+#   zero = 1,
+#   lineheight = "auto",
+#   boxsize = 0.5,
+#   col = fpColors(box = "darkred", line = "grey", summary = "royalblue")
+# )
+
+
+################################### INTERACTION PLOT ################################### 
 
 #Creating individual models with v025 (which are significant from table one)
 ##WITH INTERACTION IN FORMULA
