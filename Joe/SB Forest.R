@@ -53,7 +53,7 @@ OR_design <-
     data=OR_df
   )
 
-sb_forest <- as.data.frame(matrix(nrow=11,ncol=5))
+sb_forest <- as.data.frame(matrix(nrow=9,ncol=5))
 names(sb_forest) <- c("each_factor","p-value","ORadj","OR_lower","OR_higher")
 
 glm_res <- svyglm(stillbirth~residence, OR_design, family=quasibinomial())
@@ -80,22 +80,6 @@ sb_forest[3,] <-
     exp(confint(glm_edu))[[2,2]]
   )
 
-glm_hyp <- svyglm(stillbirth~residence+s1125, OR_design, family=quasibinomial())
-sb_forest[4,] <-
-  c("hypertension","<0.001",
-    exp(coef(glm_hyp))[[2]],
-    exp(confint(glm_hyp))[[2,1]],
-    exp(confint(glm_hyp))[[2,2]]
-  )
-
-glm_mode <- svyglm(stillbirth~residence+m17, OR_design, family=quasibinomial())
-sb_forest[5,] <-
-  c("c-section","<0.001",
-    exp(coef(glm_mode))[[2]],
-    exp(confint(glm_mode))[[2,1]],
-    exp(confint(glm_mode))[[2,2]]
-  )
-
 glm_marr <- svyglm(stillbirth~residence+marr, OR_design, family=quasibinomial())
 sb_forest[6,] <-
   c("married","0.002",
@@ -120,45 +104,29 @@ sb_forest[8,] <-
     exp(confint(glm_emp))[[2,2]]
   )
 
-glm_gest <- svyglm(stillbirth~residence+gest, OR_design, family=quasibinomial())
+glm_hyp <- svyglm(stillbirth~residence+s1125, OR_design, family=quasibinomial())
+sb_forest[4,] <-
+  c("hypertension","<0.001",
+    exp(coef(glm_hyp))[[2]],
+    exp(confint(glm_hyp))[[2,1]],
+    exp(confint(glm_hyp))[[2,2]]
+  )
+
+glm_mode <- svyglm(stillbirth~residence+m17, OR_design, family=quasibinomial())
+sb_forest[5,] <-
+  c("c-section","<0.001",
+    exp(coef(glm_mode))[[2]],
+    exp(confint(glm_mode))[[2,1]],
+    exp(confint(glm_mode))[[2,2]]
+  )
+
+glm_gest <- svyglm(stillbirth~residence+anc4, OR_design, family=quasibinomial())
 sb_forest[9,] <-
-  c("preterm","0.011",
+  c("4+ ANC Visits","0.011",
     exp(coef(glm_gest))[[2]],
     exp(confint(glm_gest))[[2,1]],
     exp(confint(glm_gest))[[2,2]]
   )
-
-glm_bmi <- svyglm(stillbirth~residence+bmi, OR_design, family=quasibinomial())
-sb_forest[10,] <-
-  c("bmi","<0.001",
-    exp(coef(glm_bmi))[[2]],
-    exp(confint(glm_bmi))[[2,1]],
-    exp(confint(glm_bmi))[[2,2]]
-  )
-
-########################## FROM prev_sb.R #############################
-
-pmc <- psb[!is.na(psb$prev_mc),]
-mc_design <-
-  svydesign(
-    id=~v021,
-    strata=~v023,
-    weights=~wt,
-    data=pmc
-  )
-
-glm_prev_mc <-
-  svyglm(stillbirth~relevel(factor(v025),ref=2)+prev_mc,
-         mc_design,
-         family = quasibinomial())
-sb_forest[11,] <-
-  c("recent miscarriage","<0.001",
-    exp(coef(glm_prev_mc))[[2]],
-    exp(confint(glm_prev_mc))[[2,1]],
-    exp(confint(glm_prev_mc))[[2,2]]
-  )
-exp(coef(glm_prev_mc)) # OR = 2.46
-exp(confint(glm_prev_mc)) # CI: 0.82-7.41
 
 ######################## Figure to illustrate changes in OR  ###########
 
@@ -176,9 +144,7 @@ base_data <-
     lower = sb_forest$OR_lower,
     upper = sb_forest$OR_higher,
     labels = sb_forest$each_factor,
-    OR = c("1.511",
-           "1.505", "1.398", "1.414", "1.353", "1.481",
-           "0.938", "1.564", "1.248", "1.330", "2.459"
+    OR = c(rep(NA, 8)
     )
   )
 
