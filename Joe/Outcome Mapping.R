@@ -1,12 +1,4 @@
-getwd() # setwd to 'TZDHS' folder
 setwd("...")
-
-### The GC folder has a guidebook and a csv file which shows attributes of each cluster
-### tz_clusters <- read.csv("Geospatial Data/TZGC81FL/TZGC81FL.csv")
-
-### The GE folder has the geospatial files
-### We can join to the csv above by DHSID if necessary
-### tz_map <- st_read("Geospatial Data/TZGE81FL/TZGE81FL.shp")
 
 # install.packages("sf")
 library(sf) # new package for spatial data
