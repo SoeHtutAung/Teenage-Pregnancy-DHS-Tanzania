@@ -152,11 +152,11 @@ ir_data %>% group_by(fp_info) %>% summarise(n = n()) # check grouping
 # alternative: data %>% group_by(v384a,v384b,v384c,v384d,v384e,v384f,v384g,v384h) %>% summarize (count = n())
 
 ### Create varaible for marital and sex status
-ir_data <- ir_data %>%
+ir_data <- ir_data %>% filter(teen_preg == 1) %>%
   mutate(premaritalsex = factor(
-      case_when(is.na(v531) | is.na(v511) ~ 2, v531 < v511 ~ 1, TRUE ~ 0),
-      levels = c(0, 1, 2),
-      labels = c("No", "Yes", "Extraunion sex")))
+      case_when(is.na(v531) | is.na(v511) ~ 0, v531 < v511 ~ 1, TRUE ~ 0),
+      levels = c(0, 1),
+      labels = c("No", "Yes")))
 ir_data %>% filter(teen_preg == 1) %>% 
   group_by(premaritalsex) %>% summarize(n()) # check numbers
 
@@ -288,12 +288,12 @@ Sample code to correct and round up the numbers in svytables, but I didn't use i
 
 ```{r sd}
 ### age
-svyby(formula = ~v012, by = ~v025 + teen_preg, design = dhs, FUN = svymean, vartype=c("ci"))
+svyby(formula = ~v012, by = ~1, design = dhs, FUN = svymean, vartype=c("ci"))
 svyttest(v012 ~ v025, design = dhs) # t-test for pvalue
 
 ### education
 svytable(~edu_gp + v025 + teen_preg, design = dhs)
-svychisq(~edu_gp + v025, design = dhs, statistics = "design")
+svychisq(~premaritalsex + v025, design = dhs, statistics = "design")
 
 ### current marital status
 svytable(~marital + v025 + teen_preg, design = dhs)
@@ -709,11 +709,11 @@ glmdata <- finaldata %>% dplyr::select (c(
   teen_preg, # outcome 
   v025, # exposure
   v024, # region
-  v012,edu_gp,marital,  # socio demographic - age, education, marital,
+  edu_gp,marital,recent_migrate,  # socio demographic - education, marital,migration
   v190,employ_current, # socio economnic - wealth, employment,
-  contra_know_any, fp_info, # health behaviour - knowledge contraceptive, heard about FP messages
-  v467c,v467f, # problem access to services - money, alone
-  edu # hh characteristics - highest edu in hh, 
+  fp_info, # health behaviour - heard about FP messages
+  v467c,v467d, v467f, # problem access to services - money,distance, alone
+  hv012, edu, hv219 # hh characteristics - highest edu in hh, 
 ))
 
 # Omit na values from dataset
@@ -725,17 +725,27 @@ glmdesign <- svydesign(id = ~v021, strata = ~v023, weights = ~v005, data = glmda
 
 Forward approach:
 
+-   Bivariate model
+
+```{r modelbivariate}
+model_bi <- svyglm(teen_preg ~ factor(v025),
+                    design = glmdesign, family = binomial(), na.action = na.exclude)
+print (exp (coef(model_v025)[2]))
+print (exp (confint(model_v025)[2, ]))
+print (summary(model_v025)$coefficients[2,"Pr(>|t|)"])
+```
+
 -   Model 1: Socio-demographic - age, education, marital status
 
 ```{r model1, warning=FALSE}
 # age, education, marital status
 modelm_1 <- svyglm(teen_preg ~ factor(v025) + 
-                     v012 + factor (edu_gp) + factor (marital),
+                     factor (edu_gp) + factor (marital) + factor (recent_migrate),
                    design = glmdesign, family = binomial(), na.action = na.exclude)
 
-print (exp (coef(modelm_1)))
-print (exp (confint(modelm_1)))
-print (summary(modelm_1)$coefficients[,"Pr(>|t|)"])
+print (exp (coef(modelm_1)[2]))
+print (exp (confint(modelm_1)[2,]))
+print (summary(modelm_1)$coefficients[2,"Pr(>|t|)"])
 ```
 
 -   Model 2: Model 1+ Socio-economic - wealth index, employment
@@ -743,44 +753,44 @@ print (summary(modelm_1)$coefficients[,"Pr(>|t|)"])
 ```{r model2, warning=FALSE}
 # wealth index, employment
 modelm_2 <- svyglm(teen_preg ~ factor(v025) + 
-                     v012 + factor (edu_gp) + factor (marital) + 
+                     factor (edu_gp) + factor (marital) + factor (recent_migrate) + 
                      factor (v190) + factor (employ_current), 
                    design = glmdesign, family = binomial(), na.action = na.exclude)
 
-print (exp (coef(modelm_2)))
-print (exp (confint(modelm_2)))
-print (summary(modelm_2)$coefficients[,"Pr(>|t|)"])
+print (exp (coef(modelm_2)[2]))
+print (exp (confint(modelm_2)[2,]))
+print (summary(modelm_2)$coefficients[2,"Pr(>|t|)"])
 ```
 
--   Model 3: Model 2 + Health behaviour - knowledge on contraceptive, heard family planning
+-   Model 3: Model 2 + Health behaviour - heard family planning
 
 ```{r model3}
 # knowledge on contraceptive, heard family planning
 modelm_3 <- svyglm(teen_preg ~ factor(v025) + 
-                     v012 + factor (edu_gp) + factor (marital) + 
+                     factor (edu_gp) + factor (marital) + factor (recent_migrate) +
                      factor (v190) + factor (employ_current) +
-                     factor (contra_know_any) + factor (fp_info),
+                     factor (fp_info),
                    design = glmdesign, family = binomial(), na.action = na.exclude)
 
-print (exp (coef(modelm_3)))
-print (exp (confint(modelm_3)))
-print (summary(modelm_3)$coefficients[,"Pr(>|t|)"])
+print (exp (coef(modelm_3)[2]))
+print (exp (confint(modelm_3)[2,]))
+print (summary(modelm_3)$coefficients[2,"Pr(>|t|)"])
 ```
 
--   Model 4: Model 3 + Problem with access to services - all 4
+-   Model 4: Model 3 + Problem with access to services
 
 ```{r model4}
 # permission, money, distance, alone
 modelm_4 <- svyglm(teen_preg ~ factor(v025) + 
-                     v012 + factor (edu_gp) + factor (marital) + 
+                     factor (edu_gp) + factor (marital) + factor (recent_migrate) +
                      factor (v190) + factor (employ_current) +
-                     factor (contra_know_any) + factor (fp_info) +
-                     factor (v467c) +factor (v467f),
+                     factor (fp_info) +
+                     factor (v467c) + factor (v467d) + factor (v467f),
                    design = glmdesign, family = binomial(), na.action = na.exclude)
 
-print (exp (coef(modelm_4)))
-print (exp (confint(modelm_4)))
-print (summary(modelm_4)$coefficients[,"Pr(>|t|)"])
+print (exp (coef(modelm_4)[2]))
+print (exp (confint(modelm_4)[2,]))
+print (summary(modelm_4)$coefficients[2,"Pr(>|t|)"])
 ```
 
 -   Model 5: Model 4 + HH characteristics - hh size, sex of hh head
@@ -788,11 +798,11 @@ print (summary(modelm_4)$coefficients[,"Pr(>|t|)"])
 ```{r model5, warning=FALSE}
 # hh size, sex of hh head
 modelm_5 <- svyglm(teen_preg ~ factor(v025) + 
-                     v012 + factor (edu_gp) + factor (marital) + 
+                     factor (edu_gp) + factor (marital) + factor (recent_migrate) +
                      factor (v190) + factor (employ_current) +
-                     factor (contra_know_any) + factor (fp_info) +
-                     factor (v467c) +factor (v467f) +
-                     factor (edu),
+                     factor (fp_info) +
+                     factor (v467c) + factor (v467d) + factor (v467f) +
+                     hv012 + factor (edu) + factor (hv219),
                    design = glmdesign, family = binomial())
 
 print (exp (coef(modelm_5)))
@@ -917,4 +927,98 @@ confusionMatrix(predfit,fitdata$teen_preg, positive = "1")
 print (exp (coef(modelfit)))
 print (exp (confint(modelfit)))
 print (summary(modelfit)$coefficients[,"Pr(>|t|)"])
+```
+
+Additional models for individual confounders
+
+```{r individuals, warning=FALSE}
+# Education
+m1 <- svyglm(teen_preg ~ factor(v025) + factor (edu_gp), 
+                   design = glmdesign, family = binomial())
+print (exp (coef(m1)[2])); print (exp (confint(m1)[2,]))
+
+# Marital
+m2 <- svyglm(teen_preg ~ factor(v025) + factor (marital), 
+                   design = glmdesign, family = binomial())
+print (exp (coef(m2)[2])); print (exp (confint(m2)[2,]))
+
+# Migration
+m3 <- svyglm(teen_preg ~ factor(v025) + factor (recent_migrate), 
+                   design = glmdesign, family = binomial())
+print (exp (coef(m3)[2])); print (exp (confint(m3)[2,]))
+
+# HH wealth
+m4 <- svyglm(teen_preg ~ factor(v025) + factor (v190), 
+                   design = glmdesign, family = binomial())
+print (exp (coef(m4)[2])); print (exp (confint(m4)[2,]))
+
+# Employment
+m5 <- svyglm(teen_preg ~ factor(v025) + factor (employ_current), 
+                   design = glmdesign, family = binomial())
+print (exp (coef(m5)[2])); print (exp (confint(m5)[2,]))
+
+# FP info
+m6 <- svyglm(teen_preg ~ factor(v025) + factor (fp_info), 
+                   design = glmdesign, family = binomial())
+print (exp (coef(m6)[2])); print (exp (confint(m6)[2,]))
+
+# Problem - money
+m7 <- svyglm(teen_preg ~ factor(v025) + factor (v467c) + factor (v467d) + factor (v467f), 
+                   design = glmdesign, family = binomial())
+print (exp (coef(m7)[2])); print (exp (confint(m7)[2,]))
+
+# HH size
+m10 <- svyglm(teen_preg ~ factor(v025) +  hv012, 
+                   design = glmdesign, family = binomial())
+print (exp (coef(m10)[2])); print (exp (confint(m10)[2,]))
+
+# HH edu
+m11 <- svyglm(teen_preg ~ factor(v025) + factor (edu), 
+                   design = glmdesign, family = binomial())
+print (exp (coef(m11)[2])); print (exp (confint(m11)[2,]))
+
+# HH sex
+m12 <- svyglm(teen_preg ~ factor(v025) + factor (hv219), 
+                   design = glmdesign, family = binomial())
+print (exp (coef(m12)[2])); print (exp (confint(m12)[2,]))
+
+```
+
+Additional analysis
+
+```{r explorator}
+names(preg_region) <- c("v024","Married","TPR","Regions")
+
+preg_region %>% 
+  ggplot () +
+  geom_point(aes(TPR , Married)) +
+  geom_smooth(aes(TPR, Married)) +
+  theme_minimal() +
+  labs (x = "Teenage pregnancy percent", y = "Married proportion")
+
+preg_region %>% 
+  ggplot () +
+  geom_point(aes(TPR,Regions),color = "blue4") +
+  geom_point(aes(Married,Regions),color = "green2") +
+  theme_minimal() +
+  labs (x = "Regions", y = "Proportion")
+
+finaldata %>%
+  ggplot(aes(x = v024, fill = premaritalsex)) +
+  geom_bar(stat = "count") +
+  labs(x = "Region", y = "Count", fill = "Premarital Sex") +
+  theme_minimal()
+
+
+subset_data <- update(dhs, subset = teen_preg == 1)
+ta <- svytable(~ v024 + v025 + edu_gp, design = subset_data)
+svychisq(~premaritalsex + teen_preg, design = subset_data, statistics = "design")
+
+edu_region <- as.data.frame(ta)
+
+edu_region <- left_join(edu_region,diff_plot, by = "v024")
+
+
+edu_region %>%
+  group_by(edu_region$names,v025) %>% summarise(n = sum(Freq))
 ```

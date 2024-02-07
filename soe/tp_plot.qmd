@@ -14,6 +14,7 @@ library(ggcorrplot)
 library(vip)
 library(tibble)
 library(forcats)
+library(forestplot)
 ```
 
 ```{r load}
@@ -337,14 +338,14 @@ To visualize variables of importance in regression model. *Can build one plot af
 
 ```{r vipplots}
 #check the output in vip package 
-vip(modelfit, num_features = 8, geom = "point", horizontal = TRUE) +
+vip(modelm_5, num_features = 8, geom = "point", horizontal = TRUE) +
   theme_light()
 
 # want to edit variable names, so manually plot vip for 8 variables with p-value of <0.05 in summary() 
 # create namelist
 names <- c("In marriage/union", "Past marriage/union", "Age", "Information about family planning","Secondar or higher education","Knows contraceptive method", "Problem access to service - being alone","Highest education level of household")
 # create a df
-viptable <- caret::varImp(modelfit) %>% arrange(desc(abs(Overall))) %>% 
+viptable <- caret::varImp(modelm_5) %>% arrange(desc(abs(Overall))) %>% 
   head(8) %>% mutate (names = names)
 # plot
 viptable %>% # arrange(desc(abs(Overall))) %>%
@@ -412,6 +413,100 @@ ggcorrplot(cor(cordata),
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
 ```
 
-```{r}
+### Differences plot
 
+```{r plot difference}
+diff_plot %>% 
+  arrange(rural_tpr) %>%
+  ggplot() +
+  geom_point(aes(urban_tpr, names, color = "Urban"), alpha = 0.5, size = 3) +
+  geom_point(aes(rural_tpr, names, color = "Rural"), alpha = 0.5, size = 3) +
+  theme_minimal() +
+  geom_segment(aes(x = urban_tpr, y = names, xend = rural_tpr, yend = names), color = 'blue', size = 0.5) +
+  geom_vline(xintercept = 22, color = 'blue', linetype = 'dashed') +
+  labs(x = "Percentage of teenage pregnancy", y = NULL) +
+  scale_color_manual(values = c("Urban" = "green", "Rural" = "darkorange"), name = "Location") +
+  guides(color = guide_legend(title = "Residence"))
+```
+
+### Forest plot
+
+```{r forestplot_models}
+# Vectors for storing the exponentiated coefficients and their confidence intervals
+coefficients <- c(1.67, 0.80, 0.74, 0.79, 0.80, 0.84)
+lower_ci <- c(1.25, 0.54, 0.47, 0.50, 0.51, 0.53)
+upper_ci <- c(2.48, 1.19, 1.18, 1.26, 1.26, 1.32)
+names <- c("Model 1: Teenage Pregnancy Rate ~ Urban vs Rural",
+            "Model 2: Model 1 + Sociodemographic",
+            "Model 3: Model 2 + Socioeconomic",
+            "Model 4; Model 3 + Health behaviour",
+            "Model 5; Model 4 + Problem with access to services",
+            "Model 6: Model 5 + Household characteristics")
+
+forest_data_model <- data.frame(coefficients = coefficients, lower_ci = lower_ci, upper_ci = upper_ci, names = names)
+
+forest_data_model %>%
+  forestplot(
+  title = "Adjusted Odd Ratios between Urban and Rural",
+  mean = coefficients,
+  lower = lower_ci,
+  upper = upper_ci,
+  labeltext = c(names,coefficients),
+  clip = c(0.1,3),
+  zero = 1,
+  vertices = TRUE,
+  lineheight = "auto",
+  boxsize = 0.5
+  ) %>%
+  fp_add_header(
+  names = c("", "Factor"),
+  coefficients = c("", "OR")
+  ) %>%
+  fp_set_style(
+    box = "#1CABE2",
+    line = "#1CABE2",
+    summary = "#1CABE2",
+    txt_gp = fpTxtGp(
+      ticks = gpar(cex = 1),
+      xlab  = gpar(cex = 1.5)))
+```
+
+```{r forestplot_individuals}
+##Final from Joe
+
+# Vectors for storing the exponentiated coefficients and their confidence intervals
+or <- c(1.67,1.20, 1.05,1.81,0.90,1.65,1.89,1.68,1.77,1.50,1.68)
+l_ci <- c(1.25,0.89, 0.75,1.31,0.59,1.22,1.40,1.24,1.32,1.10,1.25)
+u_ci <- c(2.48,1.63, 1.47,2.50,1.38,2.23,2.54,2.27,2.38,2.04,2.27)
+labels <- c("Rural residence","Education", "Marital status", "Recent migration", "Household wealth", "Current employment",
+            "Access to familyplanning", "Access to services",
+            "Household size", "Household education", "Sex of household head")
+
+forest_data <- data.frame(or = or, l_ci = l_ci, u_ci = u_ci, labels = labels)
+
+
+forest_data %>%
+  forestplot(
+  title = "OR for Urban vs Rural TPR by Confounding Factors",
+  mean = or,
+  lower = l_ci,
+  upper = u_ci,
+  labeltext = c(labels,or),
+  clip = c(0.1,3),
+  zero = 1,
+  vertices = TRUE,
+  lineheight = "auto",
+  boxsize = 0.5
+  ) %>%
+  fp_add_header(
+  labels = c("", "Factor"),
+  or = c("", "OR")
+  ) %>%
+  fp_set_style(
+    box = "#1CABE2",
+    line = "#1CABE2",
+    summary = "#1CABE2",
+    txt_gp = fpTxtGp(
+      ticks = gpar(cex = 1),
+      xlab  = gpar(cex = 1.5)))
 ```
