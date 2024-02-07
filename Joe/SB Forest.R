@@ -19,22 +19,10 @@ OR_df <-
   mutate(
     wt = v005/1e6,
     stillbirth = ifelse(p32==2, 1, 0),
-    matage = cut((p3-v011)/12, breaks = c(0,20,25,35,50), right = FALSE),
-    anc4 = ifelse(
-      is.na(m14) | m14<4, 0 , 1
-    ),
+    matage = (p3-v011)/12,
+    anc4 = ifelse( is.na(m14) | m14<4, 0 , 1 ),
     emp_year = ifelse(v731==0, 0, 1),
-    edu = factor(
-      ifelse( v106==0,0, ifelse(v106==1,1,2) )
-    ),
-    marr = factor(
-      ifelse(
-        v501==0,"Never",
-        ifelse(
-          v501==1 | v501==2, "Current", "Formerly"
-        )
-      )
-    ),
+    edu = factor( ifelse( v106==0,0, ifelse(v106==1,1,2) ) ),
     married = ifelse( v501==1 | v501==2 , 1, 0),
     wealth = factor(v190)
   )
@@ -47,6 +35,7 @@ OR_design <-
     data=OR_df
   )
 
+# We will store all information needed for the plot in sb_forest
 sb_forest <- as.data.frame(matrix(nrow=9,ncol=5))
 names(sb_forest) <- c("each_factor","p-value","ORadj","OR_lower","OR_higher")
 
@@ -73,14 +62,6 @@ sb_forest[3,] <-
     exp(confint(glm_edu))[[2,1]],
     exp(confint(glm_edu))[[2,2]]
   )
-
-# glm_marr <- svyglm(stillbirth~v025*marr, OR_design, family=quasibinomial())
-# sb_forest[4,] <-
-#   c("Married","0.002",
-#     exp(coef(glm_marr))[[2]],
-#     exp(confint(glm_marr))[[2,1]],
-#     exp(confint(glm_marr))[[2,2]]
-#   )
 
 glm_married <- svyglm(stillbirth~v025*married, OR_design, family=quasibinomial())
 sb_forest[4,] <-
@@ -134,8 +115,7 @@ sb_forest[9,] <-
 
 library(forestplot)
 
-# # Vectors for storing the exponentiated coefficients and their confidence intervals
-
+# Create a tibble for use in the forestplot object
 base_data <-
   tibble::tibble(
     mean  = as.numeric(sb_forest$ORadj),
@@ -169,5 +149,3 @@ base_data %>%
     txt_gp = fpTxtGp(
       ticks = gpar(cex = 1),
       xlab  = gpar(cex = 1.5)))
-
-####################################
