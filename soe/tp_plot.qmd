@@ -356,7 +356,7 @@ viptable %>% # arrange(desc(abs(Overall))) %>%
   theme(axis.title.y = element_blank()) 
 ```
 
-To visualize distribution of characteristics in different outcome groups, disaggregated by residence.
+### 3.1 Bars (100% stack)
 
 ```{r modified_bars}
 # education status
@@ -368,7 +368,7 @@ round((svytable(~edu_gp + v025 + teen_preg, design = dhs)/1e6),0) %>%
   scale_x_discrete(labels = c("1" = "Urban", "2" = "Rural")) +
   theme_minimal() +
   scale_fill_manual(
-    values = c("0" = "tomato1", "1" = "orange", "2" = "green3"),
+    values = c("0" = "#eb442c", "1" = "#ffe134", "2" = "#7bb662"),
     labels = c("0" = "No education", "1" = "Primary", "2" = "Secondary +"), 
     name = "Education") +
   labs(x = "Type of residence", y = "Proportion") +
@@ -376,7 +376,39 @@ round((svytable(~edu_gp + v025 + teen_preg, design = dhs)/1e6),0) %>%
     teen_preg = c("0" = "No", "1" = "Teenage pregnancy")))
 ```
 
-Same as above, but points
+```{r}
+# marital status
+round((svytable(~marital + v025 + teen_preg, design = dhs)/1e6),0) %>%
+  as.data.frame() %>% 
+  ## plotting
+  ggplot(aes(x = v025, y = Freq, fill = marital)) +
+  geom_bar(position = "fill", stat = "identity") +
+  scale_x_discrete(labels = c("1" = "Urban", "2" = "Rural")) +
+  theme_minimal() +
+  scale_fill_manual(
+    values = c("0" = "#eb442c", "1" = "#ffe134", "2" = "#7bb662"),
+    labels = c("0" = "No education", "1" = "Primary", "2" = "Secondary +"), 
+    name = "Education") +
+  labs(x = "Type of residence", y = "Proportion") +
+  facet_grid(rows = vars(teen_preg),labeller = labeller(
+    teen_preg = c("0" = "No", "1" = "Teenage pregnancy")))
+```
+
+### 3.2 Hourglass
+
+```{r hourglass}
+round((svytable(~marital + v025 + teen_preg, design = dhs)/1e6),0) %>%
+  as.data.frame() %>% 
+  mutate(n = ifelse(v025 == 1, Freq * (-1), Freq * 1)) %>%
+  ggplot(aes(x = marital, y = n, fill = factor(v025))) +
+  geom_bar(stat = "identity") +
+  scale_y_continuous(labels = abs) +
+  coord_flip() +
+  labs(x = "Marital status", y = "Number of cases", fill = "Residence") +
+  theme(legend.position="bottom")
+```
+
+### 3.3 Points
 
 ```{r modified_points}
 #compare all three lists
@@ -392,6 +424,8 @@ round((svytable(~edu_gp + v024 + v025 + teen_preg,
                teen_preg = c("0" = "No", "1" = "Teenage pregnancy")))
 
 ```
+
+### 3.4 Correlation matrix
 
 Can explain about relationship between variables in correlation matrix.
 
@@ -413,7 +447,7 @@ ggcorrplot(cor(cordata),
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
 ```
 
-### Differences plot
+### 3.5 U/R differences plot
 
 ```{r plot difference}
 diff_plot %>% 
@@ -429,7 +463,7 @@ diff_plot %>%
   guides(color = guide_legend(title = "Residence"))
 ```
 
-### Forest plot
+### 3.6 Forest plots
 
 ```{r forestplot_models}
 # Vectors for storing the exponentiated coefficients and their confidence intervals
@@ -509,4 +543,29 @@ forest_data %>%
     txt_gp = fpTxtGp(
       ticks = gpar(cex = 1),
       xlab  = gpar(cex = 1.5)))
+```
+
+```{r}
+marital_temp <- finaldata [,c("v025","v024","marital")]
+
+
+  
+```
+
+```{r}
+round((svytable(~marital + v025, v024, teen_preg, design = dhs)/1e6),0) %>%
+  as.data.frame() %>% 
+  ggplot(aes(x = teen_preg, y = Freq, fill = marital)) +
+  geom_bar(position = "fill", stat = "identity") +
+  facet_wrap(~v025) +
+  scale_x_discrete(labels = c("0" = "Not", "1" = "Teenage pregnancy")) +
+  theme_minimal()
+
+marital_temp <- svyby(~(marital != 0), ~v024 + v025, dhs, svymean)
+marital_temp <- marital_temp [,c(1,2,4)]
+marital_temp %>% 
+  ggplot(aes(x = v025, y = marital, fill = )) +
+  geom_bar(position = "fill", stat = "identity") +
+  facet_wrap(~v025) +
+  theme_minimal()
 ```
