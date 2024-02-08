@@ -15,6 +15,7 @@ library(vip)
 library(tibble)
 library(forcats)
 library(forestplot)
+library(gridExtra)
 ```
 
 ```{r load}
@@ -376,22 +377,69 @@ round((svytable(~edu_gp + v025 + teen_preg, design = dhs)/1e6),0) %>%
     teen_preg = c("0" = "No", "1" = "Teenage pregnancy")))
 ```
 
-```{r}
+```{r onelayer}
 # marital status
-round((svytable(~marital + v025 + teen_preg, design = dhs)/1e6),0) %>%
-  as.data.frame() %>% 
-  ## plotting
+p1 <- 
+  round((svytable(~marital + v025, design = dhs)/1e6),0) %>%
+  as.data.frame() %>%
   ggplot(aes(x = v025, y = Freq, fill = marital)) +
   geom_bar(position = "fill", stat = "identity") +
   scale_x_discrete(labels = c("1" = "Urban", "2" = "Rural")) +
   theme_minimal() +
   scale_fill_manual(
-    values = c("0" = "#eb442c", "1" = "#ffe134", "2" = "#7bb662"),
+    values = c("0" = "#58cced", "1" = "#3895d3", "2" = "#072f5f"),
+    labels = c("0" = "Never married", "1" = "In a marriage", "2" = "Ex-married"), 
+    name = "Marital status") +
+  labs(x = NULL, y = "Proportion")
+
+# education status
+p2 <-
+  round((svytable(~edu_gp + v025, design = dhs)/1e6),0) %>%
+  as.data.frame() %>%
+  ggplot(aes(x = v025, y = Freq, fill = edu_gp)) +
+  geom_bar(position = "fill", stat = "identity") +
+  scale_x_discrete(labels = c("1" = "Urban", "2" = "Rural")) +
+  theme_minimal() +
+  scale_fill_manual(
+    values = c("0" = "#072f5f", "1" = "#3895d3", "2" = "#58cced"),
     labels = c("0" = "No education", "1" = "Primary", "2" = "Secondary +"), 
     name = "Education") +
-  labs(x = "Type of residence", y = "Proportion") +
-  facet_grid(rows = vars(teen_preg),labeller = labeller(
-    teen_preg = c("0" = "No", "1" = "Teenage pregnancy")))
+  labs(x = NULL, y = NULL)
+
+# employment status
+p3 <-
+  round((svytable(~ employ_current+ v025, design = dhs)/1e6),0) %>%
+  as.data.frame() %>%
+  ggplot(aes(x = v025, y = Freq, fill = employ_current)) +
+  geom_bar(position = "fill", stat = "identity") +
+  scale_x_discrete(labels = c("1" = "Urban", "2" = "Rural")) +
+  theme_minimal() +
+  scale_fill_manual(
+    values = c("0" = "#58cced", "1" = "#072f5f"),
+    labels = c("0" = "No", "1" = "Employed"), 
+    name = "Current employment") +
+  labs(x = NULL, y = "Proportion")
+
+# wealth index
+p4 <-
+  round((svytable(~v190 + v025, design = dhs)/1e6),0) %>%
+  as.data.frame() %>%
+  ggplot(aes(x = v025, y = Freq, fill = v190)) +
+  geom_bar(position = "fill", stat = "identity") +
+  scale_x_discrete(labels = c("1" = "Urban", "2" = "Rural")) +
+  theme_minimal() +
+  scale_fill_manual(
+    values = c("1" = "#1e2d47", "2" = "#072f5f",
+               "3" = "#1261A0", "4" = "#3895d3",
+               "5" = "#58cced"),
+    labels = c("1" = "Poorest", "2" = "Poorer",
+               "3" = "Middle", "4" = "Richer",
+               "5" = "Richest"), 
+    name = "Wealth index") +
+  labs(x = NULL, y = NULL)
+
+# arrange all
+gridExtra::grid.arrange(p1, p2, p3, p4, ncol = 2)
 ```
 
 ### 3.2 Hourglass
@@ -448,6 +496,10 @@ ggcorrplot(cor(cordata),
 ```
 
 ### 3.5 U/R differences plot
+
+```{r}
+
+```
 
 ```{r plot difference}
 diff_plot %>% 
