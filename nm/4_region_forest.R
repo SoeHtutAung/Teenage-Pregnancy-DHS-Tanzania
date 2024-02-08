@@ -1,3 +1,5 @@
+library(dplyr)
+library(ggplot2)
 #Cleaning dataset
 new <- read.csv("~/Downloads/nm_strata.csv")
 
@@ -48,15 +50,15 @@ cleaned_region <- merge(urban_nm, rural_nm, by = "region") %>%
 
 cleaned_region$v024 <- 
   factor(cleaned_region$v024,
-         levels = cleaned_region$region)
+         levels = cleaned_region$v024)
 
-regions <-
+v024 <-
   data.frame(
-    region = rep(cleaned_region$region,2),
+    region = rep(cleaned_region$v024,2),
     residence = c( rep("urban", ))
   )
 
-regional_data %>%
+cleaned_region %>%
   ggplot(aes(x = region)) +
   geom_linerange(
     aes(ymin = rural, ymax = urban, x = region),
