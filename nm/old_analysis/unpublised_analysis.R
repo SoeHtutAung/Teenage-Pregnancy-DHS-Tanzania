@@ -1,4 +1,3 @@
-setwd("C:/Users/Saund/OneDrive/MSc_HDS_2022/Data Challenge")
 # ##LOAD LIBRARIES
 # library(dplyr)
 # library(haven)
