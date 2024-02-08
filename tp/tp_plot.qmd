@@ -377,6 +377,8 @@ round((svytable(~edu_gp + v025 + teen_preg, design = dhs)/1e6),0) %>%
     teen_preg = c("0" = "No", "1" = "Teenage pregnancy")))
 ```
 
+### Contextual plot - for presentation 
+
 ```{r onelayer}
 # marital status
 p1 <- 
