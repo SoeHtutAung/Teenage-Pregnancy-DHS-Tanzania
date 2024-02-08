@@ -1,7 +1,7 @@
 library(dplyr)
 library(ggplot2)
 #Cleaning dataset
-new <- read.csv("~/Downloads/nm_strata.csv")
+new <- read.csv("~/Downloads/2 Data Challenge/unicef/nm_strata.csv")
 
 new <- new %>%
   mutate(region = case_when(
