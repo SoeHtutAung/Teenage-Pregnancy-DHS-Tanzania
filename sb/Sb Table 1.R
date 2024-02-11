@@ -121,5 +121,3 @@ reg_round <-
   diff = urban - rural  
   )
 write.csv(reg_round, "sb_rates_revised.csv")
-
-# Sent this to Soe 
