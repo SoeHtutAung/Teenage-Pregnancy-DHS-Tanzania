@@ -1,4 +1,11 @@
+# RStudio file
 .Rproj.user
+
+# History file
 .Rhistory
+
+# Session data file
 .RData
+
+# User specific files
 .Ruserdata
